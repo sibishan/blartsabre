@@ -1,65 +1,32 @@
-from typing import List, Set
+from typing import List, Tuple
+import networkx as nx
+import matplotlib.pyplot as plt
 
-class Graph:
-    """
-    (V,E) representation of a graph network
-
-    Attributes:
-        num_vertices: Number of vertices in graph (immutable from initialisation)
-        edges: List of edges, represented as paired Sets of indices
-    """
-    num_vertices: int
-    edges: List[Set[int, int]]
-
-    def __init__(self, num_vertices: int = 0, edges: List[Set[int, int]] = []):
-        self.num_vertices = num_vertices
-        self.edges = edges
-
-    def add_edge(self, edge: Set[int, int]):
-        if edge[0] >= self.num_vertices or edge[1] >= self.num_vertices:
-            raise ValueError("Edge vertex does not exist")
-        self.edges.append(edge)
+COMM_EDGE_WEIGHT = 3
     
-    def remove_edge(self, edge: Set[int, int]):
-        if edge in self.edges:
-            self.edges.remove(edge)
-        else:
-            raise ValueError("Edge does not exist")
-    
+class QubitNetworkGraph(nx.Graph):
+    def __init__(self, *args, **kwargs):
+        super(QubitNetworkGraph, self).__init__(*args, **kwargs)
+        nx.set_edge_attributes(self, 'data', 'type')
+
     def get_distance_matrix(self):
-        """
-        Applies Floyd-Warshall algorithm to get distance matrix between any two qubit indices
+        return nx.floyd_warshall(self)
+ 
+class DistributedQubitNetworkGraph(QubitNetworkGraph):
+    def __init__(self, *args, comm_edges=[], **kwargs):
+        super(DistributedQubitNetworkGraph, self).__init__(*args, **kwargs)
+        self.add_edges_from(comm_edges, type='comm', weight = COMM_EDGE_WEIGHT)
 
-        TODO
-        """
-        return []
-    
-class QubitNetworkGraph(Graph):
-    """
-    (V,E) representation of a qubit connectivity graph network
+if __name__ == '__main__':
+    graph = QubitNetworkGraph([(0,1),(1,2),(1,3),(3,4)], name="Ourense")
+    print(graph)
+    print(graph.get_distance_matrix())
+    subax1 = plt.subplot(121)
+    nx.draw(graph)
 
-    Attributes:
-        num_qubits: Number of qubits in network (immutable from initialisation)
-        edges: List of edges, represented as paired Sets of indices
-        name: Network architecture name
-    """
-    name: str
-
-    def __init__(self, num_qubits: int = 0, edges: List[Set[int, int]] = [], name: str = ""):
-        super().__init__(num_qubits, edges)
-        self.name = name
-
-class DistributedQubitNetworkGraph(Graph):
-    """
-    (V,E) representation of a distributed qubit connectivity graph network
-
-    Attributes:
-        num_qubits: Number of qubits in network (immutable from initialisation)
-        data_edges: List of intra-core edges, represented as paired Sets of indices
-        comm_edges: List of inter-core edges, represented as paired Sets of indices
-        name: Network architecture name
-    """
-    comm_edges: List[Set[int, int]]
-    def __init__(self, num_qubits: int = 0, data_edges: List[Set[int, int]] = [], comm_edges: List[Set[int, int]] = [], name: str = ""):
-        super().__init__(num_qubits, data_edges, name)
-        self.comm_edges = comm_edges
+    distributed_graph = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7)],comm_edges=[(1,6)])
+    subax1 = plt.subplot(122)
+    nx.draw(distributed_graph)
+    print(distributed_graph)
+    # print(distributed_graph.get_distance_matrix())
+    plt.show() 
