@@ -44,7 +44,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
 
 def sabre(qubit_graph, quantum_circuit):
     # currently assumes quantum_circuit is qiskit
-    
+
     if quantum_circuit.num_qubits > qubit_graph.num_nodes:
         raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
     initial_mapping = None #random mapping
@@ -57,3 +57,6 @@ def sabre(qubit_graph, quantum_circuit):
 
     final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
     _, inserted_SWAPs = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)
+
+    print(final_mapping)
+    print(inserted_SWAPs)
