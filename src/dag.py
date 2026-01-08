@@ -226,16 +226,8 @@ class QuantumDAG:
         """Get all gates at the back layer (no successors)."""
         return [node for node, degree in self.dag.out_degree() if degree == 0]
     
-    def get_extension_layer(self, distance: int = 1) -> List[str]:
-        """
-        Get all gates at a specific depth layer from the front.
-        
-        Args:
-            distance: Layer depth (0 = front layer, 1 = next layer, etc.)
-            
-        Returns:
-            List of gate IDs at the specified layer
-        """
+    def get_extended_layer(self, distance: int = 1) -> List[str]:
+        """Get all gates at a specific depth layer from the front."""
         layers = self.compute_layers()
         return [gate_id for gate_id, layer in layers.items() if layer <= distance]
     
