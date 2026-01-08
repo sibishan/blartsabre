@@ -1,4 +1,11 @@
-from .convert import from_qiskit, from_qasm
+from .convert import from_qiskit, from_qasm_file
+from qiskit import QuantumCircuit
+
+def reduce_2_qubit_gates(circuit):
+    for i in range(len(circuit.data)-1,-1,-1):
+        if circuit.data[i].operation.num_qubits != 2:
+            del circuit.data[i]
+    return circuit
 
 def get_SWAP_candidates(graph, front_layer):
     # Current implementation: get all adjacent SWAPs of front layer qubits
@@ -42,18 +49,21 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
 
     return mapping, inserted_SWAPs
 
-def sabre(qubit_graph, quantum_circuit):
-    # currently assumes quantum_circuit is qiskit
 
-    if quantum_circuit.num_qubits > qubit_graph.num_nodes:
-        raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
+def sabre(qubit_graph, quantum_circuit):
+    if type(quantum_circuit) == QuantumCircuit:
+        if quantum_circuit.num_qubits > len(qubit_graph):
+            raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
+        
+
+        reduced_quantum_circuit = reduce_2_qubit_gates(quantum_circuit)
+        reverse_quantum_circuit = reduced_quantum_circuit.inverse()
+        circuit_dag = from_qiskit(reduced_quantum_circuit)
+        reverse_circuit_dag = from_qiskit(reverse_quantum_circuit)
+
     initial_mapping = None #random mapping
 
-    circuit_dag = from_qiskit(quantum_circuit)
-    reverse_quantum_circuit = quantum_circuit.reverse()
-    reverse_circuit_dag = from_qiskit(reverse_quantum_circuit)
-
-    dist_matrix = qubit_graph.get_dist_matrix()
+    dist_matrix = qubit_graph.get_distance_matrix()
 
     final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
     _, inserted_SWAPs = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)

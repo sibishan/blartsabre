@@ -28,5 +28,4 @@ if __name__ == '__main__':
     subax1 = plt.subplot(122)
     nx.draw(distributed_graph)
     print(distributed_graph)
-    # print(distributed_graph.get_distance_matrix())
     plt.show() 
