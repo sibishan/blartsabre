@@ -9,8 +9,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from typing import List, Set, Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field
-from collections import deque
-import numpy as np
 
 
 @dataclass
@@ -218,6 +216,27 @@ class QuantumDAG:
     def get_descendants(self, gate_id: str) -> Set[str]:
         """Get all gates in the dependency cone after this gate."""
         return nx.descendants(self.dag, gate_id)
+    
+    def get_front_layer(self) -> List[str]:
+        """Get all gates at the front layer (no predecessors/dependencies)."""
+        return [node for node, degree in self.dag.in_degree() if degree == 0]
+    
+    def get_back_layer(self) -> List[str]:
+        """Get all gates at the back layer (no successors)."""
+        return [node for node, degree in self.dag.out_degree() if degree == 0]
+    
+    def get_extension_layer(self, distance: int = 1) -> List[str]:
+        """
+        Get all gates at a specific depth layer from the front.
+        
+        Args:
+            distance: Layer depth (0 = front layer, 1 = next layer, etc.)
+            
+        Returns:
+            List of gate IDs at the specified layer
+        """
+        layers = self.compute_layers()
+        return [gate_id for gate_id, layer in layers.items() if layer == distance]
     
     # ==================== DQC-Specific Methods ====================
     
