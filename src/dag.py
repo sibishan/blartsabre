@@ -220,6 +220,7 @@ class QuantumDAG:
     def get_front_layer(self) -> List[str]:
         """Get all gates at the front layer (no predecessors/dependencies)."""
         return [node for node, degree in self.dag.in_degree() if degree == 0]
+        return [gate_id for gate_id, layer in self.compute_layers().items() if layer == 0]
     
     def get_back_layer(self) -> List[str]:
         """Get all gates at the back layer (no successors)."""
@@ -236,7 +237,7 @@ class QuantumDAG:
             List of gate IDs at the specified layer
         """
         layers = self.compute_layers()
-        return [gate_id for gate_id, layer in layers.items() if layer == distance]
+        return [gate_id for gate_id, layer in layers.items() if layer <= distance]
     
     # ==================== DQC-Specific Methods ====================
     
