@@ -1,5 +1,5 @@
 from src.sabre import sabre
-from src.graph import QubitNetworkGraph
+from src.architecture_graph import QubitNetworkGraph
 from qiskit import QuantumCircuit
 
 qc_entangled = QuantumCircuit(2)
