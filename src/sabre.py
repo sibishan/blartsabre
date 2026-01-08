@@ -59,6 +59,7 @@ def update_mapping(mapping, p_q1, p_q2):
 
 def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
     circuit_dag = deepcopy(circuit_dag)
+    initial_mapping = initial_mapping.copy()
 
     mapping = initial_mapping
     gate_execution_log = []
@@ -77,7 +78,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
             # There are gates ready to be executed as-is
             for gate_node in executable_gate_nodes:
                 gate = circuit_dag.get_gate_from_node(gate_node)
-                gate_execution_log.append((gate.gate_type,(mapping[gate.qubits[0]],mapping[gate.qubits[1]])))
+                gate_execution_log.append((gate.gate_type + " " + str(gate.parameters),(mapping[gate.qubits[0]],mapping[gate.qubits[1]])))
                 circuit_dag.remove_gate(gate_node)
                 decay_array[mapping[gate.qubits[0]]] = 1
                 decay_array[mapping[gate.qubits[1]]] = 1
@@ -111,7 +112,14 @@ def sabre(qubit_graph, quantum_circuit):
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
     """
+    num_physical_qubits = 0
+    num_logical_qubits = 0
+    circuit_dag = None
+    reverse_circuit_dag = None
+
     if type(quantum_circuit) == QuantumCircuit:
+        quantum_circuit = quantum_circuit.decompose()
+        print(quantum_circuit)
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(qubit_graph)
 
@@ -132,7 +140,7 @@ def sabre(qubit_graph, quantum_circuit):
 
     final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
     initial_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)
-    final_mapping, gate_execution_log = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
+    _, gate_execution_log = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
 
     print("Initial Mapping:")
     for i in range(num_logical_qubits):
