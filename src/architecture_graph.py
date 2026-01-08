@@ -11,6 +11,10 @@ class QubitNetworkGraph(nx.Graph):
 
     def get_distance_matrix(self):
         return nx.floyd_warshall(self)
+    
+    def check_gate_executable(self, gate, mapping):
+        q1, q2 = gate.qubits
+        return self.has_edge(mapping[q1],mapping[q2])
  
 class DistributedQubitNetworkGraph(QubitNetworkGraph):
     def __init__(self, *args, comm_edges=[], **kwargs):
