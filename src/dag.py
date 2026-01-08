@@ -9,7 +9,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from typing import List, Set, Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field
-
+from copy import deepcopy
 
 @dataclass
 class GateNode:
@@ -21,15 +21,13 @@ class GateNode:
         gate_type: Type of gate (e.g., 'H', 'CNOT', 'RZ', 'MEASURE')
         qubits: List of qubit indices this gate operates on
         parameters: Optional gate parameters (e.g., rotation angles)
-        processor: Assigned quantum processor ID (None if unassigned)
         layer: Depth layer in the circuit (computed via topological ordering)
         metadata: Additional gate-specific information
     """
     gate_id: str
     gate_type: str
-    qubits: List[int]
+    qubits: Tuple[int]
     parameters: Optional[Dict[str, float]] = None
-    processor: Optional[str] = None
     layer: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     
@@ -63,13 +61,22 @@ class QuantumDAG:
         
         # Track qubit-to-processor mapping (for DQC)
         self.qubit_to_processor: Dict[int, str] = {}
-        
+
+    def __deepcopy__(self, memo):
+        new_dag = QuantumDAG()
+        new_dag.dag = deepcopy(self.dag)
+        new_dag.num_qubits = deepcopy(self.num_qubits)
+        new_dag.gates = deepcopy(self.gates)
+        new_dag._gate_counter = deepcopy(self._gate_counter)
+        new_dag._last_gate_on_qubit = deepcopy(self._last_gate_on_qubit)
+        new_dag.qubit_to_processor = deepcopy(self.qubit_to_processor)
+        return new_dag
+
     def add_gate(self, 
                  gate_type: str, 
                  qubits: List[int],
                  gate_id: Optional[str] = None,
                  parameters: Optional[Dict[str, float]] = None,
-                 processor: Optional[str] = None,
                  auto_dependencies: bool = True) -> str:
         """
         Add a quantum gate to the DAG.
@@ -79,7 +86,6 @@ class QuantumDAG:
             qubits: List of qubit indices
             gate_id: Optional custom gate ID (auto-generated if None)
             parameters: Optional gate parameters
-            processor: Optional processor assignment
             auto_dependencies: If True, automatically add dependencies based on qubit usage
             
         Returns:
@@ -95,7 +101,6 @@ class QuantumDAG:
             gate_type=gate_type,
             qubits=qubits,
             parameters=parameters or {},
-            processor=processor
         )
         
         self.gates[gate_id] = gate_node
@@ -134,19 +139,7 @@ class QuantumDAG:
         if gate_id in self.gates:
             self.dag.remove_node(gate_id)
             del self.gates[gate_id]
-    
-    def assign_processor(self, gate_id: str, processor: str):
-        """
-        Assign a gate to a specific quantum processor.
         
-        Args:
-            gate_id: Gate identifier
-            processor: Processor identifier
-        """
-        if gate_id in self.gates:
-            self.gates[gate_id].processor = processor
-            self.dag.nodes[gate_id]['processor'] = processor
-    
     def topological_sort(self) -> List[str]:
         """
         Return gates in topological order (respecting dependencies).
@@ -218,7 +211,7 @@ class QuantumDAG:
         return nx.descendants(self.dag, gate_id)
     
     def get_front_layer(self) -> List[str]:
-        """Get all gates at the front layer (no predecessors/dependencies)."""
+        """Get all GateNodes at the front layer (no predecessors/dependencies)."""
         return [node for node, degree in self.dag.in_degree() if degree == 0]
         return [gate_id for gate_id, layer in self.compute_layers().items() if layer == 0]
     
@@ -229,142 +222,148 @@ class QuantumDAG:
     def get_extended_layer(self, distance: int = 1) -> List[str]:
         """Get all gates at a specific depth layer from the front."""
         layers = self.compute_layers()
-        return [gate_id for gate_id, layer in layers.items() if layer <= distance]
+        return [gate_id for gate_id, layer in layers.items() if (layer <= distance and layer > 0)]
     
+    def get_gate_from_node(self, node):
+        return self.gates[node]
+    
+    def get_gates_from_nodes(self, nodes):
+        return [self.gates[node] for node in nodes]
+
     # ==================== DQC-Specific Methods ====================
     
-    def get_cross_partition_gates(self) -> List[str]:
-        """
-        Find gates that span multiple processors (require communication).
-        These are multi-qubit gates where the qubits belong to different processors.
+    # def get_cross_partition_gates(self) -> List[str]:
+    #     """
+    #     Find gates that span multiple processors (require communication).
+    #     These are multi-qubit gates where the qubits belong to different processors.
         
-        Returns:
-            List of gate IDs that require inter-processor communication
-        """
-        cross_gates = []
-        for gate_id, gate in self.gates.items():
-            if len(gate.qubits) < 2:
-                continue
+    #     Returns:
+    #         List of gate IDs that require inter-processor communication
+    #     """
+    #     cross_gates = []
+    #     for gate_id, gate in self.gates.items():
+    #         if len(gate.qubits) < 2:
+    #             continue
             
-            # Get processors for all qubits in this gate
-            processors = set()
-            for q in gate.qubits:
-                if q in self.qubit_to_processor:
-                    processors.add(self.qubit_to_processor[q])
+    #         # Get processors for all qubits in this gate
+    #         processors = set()
+    #         for q in gate.qubits:
+    #             if q in self.qubit_to_processor:
+    #                 processors.add(self.qubit_to_processor[q])
             
-            # If qubits belong to more than one processor, it's a cross-partition gate
-            if len(processors) > 1:
-                cross_gates.append(gate_id)
+    #         # If qubits belong to more than one processor, it's a cross-partition gate
+    #         if len(processors) > 1:
+    #             cross_gates.append(gate_id)
         
-        return cross_gates
+    #     return cross_gates
     
-    def get_communication_edges(self) -> List[Tuple[str, str]]:
-        """
-        Find edges that cross processor boundaries (require quantum communication).
-        This includes both:
-        1. Edges between gates on different processors
-        2. Cross-partition gates (marked with predecessor/successor edges)
+    # def get_communication_edges(self) -> List[Tuple[str, str]]:
+    #     """
+    #     Find edges that cross processor boundaries (require quantum communication).
+    #     This includes both:
+    #     1. Edges between gates on different processors
+    #     2. Cross-partition gates (marked with predecessor/successor edges)
         
-        Returns:
-            List of (from_gate, to_gate) tuples requiring communication
-        """
-        comm_edges = []
-        for u, v in self.dag.edges():
-            proc_u = self.gates[u].processor
-            proc_v = self.gates[v].processor
-            if proc_u is not None and proc_v is not None and proc_u != proc_v:
-                comm_edges.append((u, v))
-        return comm_edges
+    #     Returns:
+    #         List of (from_gate, to_gate) tuples requiring communication
+    #     """
+    #     comm_edges = []
+    #     for u, v in self.dag.edges():
+    #         proc_u = self.gates[u].processor
+    #         proc_v = self.gates[v].processor
+    #         if proc_u is not None and proc_v is not None and proc_u != proc_v:
+    #             comm_edges.append((u, v))
+    #     return comm_edges
     
-    def get_communication_cost(self) -> int:
-        """
-        Calculate total quantum communication cost.
-        This is the number of cross-partition gates (each requires teleportation).
+    # def get_communication_cost(self) -> int:
+    #     """
+    #     Calculate total quantum communication cost.
+    #     This is the number of cross-partition gates (each requires teleportation).
         
-        Returns:
-            Number of gates requiring inter-processor communication
-        """
-        return len(self.get_cross_partition_gates())
+    #     Returns:
+    #         Number of gates requiring inter-processor communication
+    #     """
+    #     return len(self.get_cross_partition_gates())
     
-    def get_gates_by_processor(self, processor: str) -> List[str]:
-        """
-        Get all gates assigned to a specific processor.
+    # def get_gates_by_processor(self, processor: str) -> List[str]:
+    #     """
+    #     Get all gates assigned to a specific processor.
         
-        Args:
-            processor: Processor identifier
+    #     Args:
+    #         processor: Processor identifier
             
-        Returns:
-            List of gate IDs assigned to this processor
-        """
-        return [gid for gid, gate in self.gates.items() 
-                if gate.processor == processor]
+    #     Returns:
+    #         List of gate IDs assigned to this processor
+    #     """
+    #     return [gid for gid, gate in self.gates.items() 
+    #             if gate.processor == processor]
     
-    def get_processor_stats(self) -> Dict[str, Dict[str, int]]:
-        """
-        Get statistics for each processor.
+    # def get_processor_stats(self) -> Dict[str, Dict[str, int]]:
+    #     """
+    #     Get statistics for each processor.
         
-        Returns:
-            Dictionary with processor stats (gate_count, depth, etc.)
-        """
-        stats = {}
-        processors = set(g.processor for g in self.gates.values() if g.processor)
+    #     Returns:
+    #         Dictionary with processor stats (gate_count, depth, etc.)
+    #     """
+    #     stats = {}
+    #     processors = set(g.processor for g in self.gates.values() if g.processor)
         
-        for proc in processors:
-            gate_ids = self.get_gates_by_processor(proc)
-            subdag = self.dag.subgraph(gate_ids)
+    #     for proc in processors:
+    #         gate_ids = self.get_gates_by_processor(proc)
+    #         subdag = self.dag.subgraph(gate_ids)
             
-            stats[proc] = {
-                'gate_count': len(gate_ids),
-                'two_qubit_gates': sum(1 for gid in gate_ids 
-                                      if len(self.gates[gid].qubits) == 2),
-                'depth': len(list(nx.dag_longest_path(subdag))) if gate_ids else 0
-            }
+    #         stats[proc] = {
+    #             'gate_count': len(gate_ids),
+    #             'two_qubit_gates': sum(1 for gid in gate_ids 
+    #                                   if len(self.gates[gid].qubits) == 2),
+    #             'depth': len(list(nx.dag_longest_path(subdag))) if gate_ids else 0
+    #         }
         
-        return stats
+    #     return stats
     
-    def partition_by_qubits(self, 
-                           qubit_groups: List[List[int]]) -> Dict[str, str]:
-        """
-        Partition circuit based on qubit groups (simple processor assignment).
+    # def partition_by_qubits(self, 
+    #                        qubit_groups: List[List[int]]) -> Dict[str, str]:
+    #     """
+    #     Partition circuit based on qubit groups (simple processor assignment).
         
-        Args:
-            qubit_groups: List of qubit lists, e.g., [[0,1], [2,3]] for 2 processors
+    #     Args:
+    #         qubit_groups: List of qubit lists, e.g., [[0,1], [2,3]] for 2 processors
             
-        Returns:
-            Dictionary mapping gate_id to processor_id
-        """
-        # First, record qubit-to-processor mapping
-        self.qubit_to_processor.clear()
-        for proc_idx, qubit_group in enumerate(qubit_groups):
-            proc_id = f"QP{proc_idx}"
-            for q in qubit_group:
-                self.qubit_to_processor[q] = proc_id
+    #     Returns:
+    #         Dictionary mapping gate_id to processor_id
+    #     """
+    #     # First, record qubit-to-processor mapping
+    #     self.qubit_to_processor.clear()
+    #     for proc_idx, qubit_group in enumerate(qubit_groups):
+    #         proc_id = f"QP{proc_idx}"
+    #         for q in qubit_group:
+    #             self.qubit_to_processor[q] = proc_id
         
-        # Now assign gates to processors
-        assignment = {}
-        for gate_id, gate in self.gates.items():
-            # Get all processors involved in this gate's qubits
-            processors = set()
-            for q in gate.qubits:
-                if q in self.qubit_to_processor:
-                    processors.add(self.qubit_to_processor[q])
+    #     # Now assign gates to processors
+    #     assignment = {}
+    #     for gate_id, gate in self.gates.items():
+    #         # Get all processors involved in this gate's qubits
+    #         processors = set()
+    #         for q in gate.qubits:
+    #             if q in self.qubit_to_processor:
+    #                 processors.add(self.qubit_to_processor[q])
             
-            if len(processors) == 1:
-                # All qubits on same processor - assign gate there
-                proc_id = processors.pop()
-                self.assign_processor(gate_id, proc_id)
-                assignment[gate_id] = proc_id
-            elif len(processors) > 1:
-                # Cross-partition gate - mark in metadata but don't assign processor
-                self.gates[gate_id].metadata['cross_partition'] = True
-                self.gates[gate_id].metadata['spans_processors'] = list(processors)
-                # Assign to the processor of the first qubit (control qubit convention)
-                # This helps with visualization, but the gate still needs communication
-                primary_proc = self.qubit_to_processor[gate.qubits[0]]
-                self.assign_processor(gate_id, primary_proc)
-                assignment[gate_id] = primary_proc
+    #         if len(processors) == 1:
+    #             # All qubits on same processor - assign gate there
+    #             proc_id = processors.pop()
+    #             self.assign_processor(gate_id, proc_id)
+    #             assignment[gate_id] = proc_id
+    #         elif len(processors) > 1:
+    #             # Cross-partition gate - mark in metadata but don't assign processor
+    #             self.gates[gate_id].metadata['cross_partition'] = True
+    #             self.gates[gate_id].metadata['spans_processors'] = list(processors)
+    #             # Assign to the processor of the first qubit (control qubit convention)
+    #             # This helps with visualization, but the gate still needs communication
+    #             primary_proc = self.qubit_to_processor[gate.qubits[0]]
+    #             self.assign_processor(gate_id, primary_proc)
+    #             assignment[gate_id] = primary_proc
         
-        return assignment
+    #     return assignment
     
     # ==================== Visualization ====================
     
