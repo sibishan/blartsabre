@@ -8,6 +8,8 @@ EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 
+NUM_ITERATIONS = 50
+
 def reduce_2_qubit_gates(circuit):
     for i in range(len(circuit.data)-1,-1,-1):
         if circuit.data[i].operation.num_qubits != 2:
@@ -131,21 +133,38 @@ def sabre(qubit_graph, quantum_circuit):
 
         if num_logical_qubits > num_physical_qubits:
             raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
-        
-    random_mapping = list(range(num_physical_qubits))
-    random.shuffle(random_mapping)
-    initial_mapping = bidict(enumerate(random_mapping))
+    
 
     dist_matrix = qubit_graph.get_distance_matrix()
 
-    final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
-    initial_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)
-    _, gate_execution_log = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
+    gate_execution_log_iterations = dict()
+
+    for iteration in range(NUM_ITERATIONS):
+        
+        random_mapping = list(range(num_physical_qubits))
+        random.shuffle(random_mapping)
+        initial_mapping = bidict(enumerate(random_mapping))
+
+        final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
+        initial_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)
+        _, gate_execution_log = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
+
+        gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
+
+    best_iteration = min(gate_execution_log_iterations, key=lambda k: len(gate_execution_log_iterations[k][1]))
+    best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
+    best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]
+
+    print("Best Iteration:")
+    print(f"#{len(best_gate_execution_log)} total gates")
+    print(f"#{len(best_swap_log)} inserted SWAPS")
+    print()
 
     print("Initial Mapping:")
     for i in range(num_logical_qubits):
-        print(f"Logical Qubit {i}: Physical Qubit {initial_mapping[i]}")
+        print(f"Logical Qubit {i}: Physical Qubit {best_initial_mapping[i]}")
+    print()
 
     print("Physical Gate Log:")
-    for gate_log in gate_execution_log:
+    for gate_log in best_gate_execution_log:
         print(f"{gate_log[0]} -> {gate_log[1][0]} {gate_log[1][1]}")
