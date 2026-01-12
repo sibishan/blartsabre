@@ -18,11 +18,12 @@ from qiskit.transpiler.passes import (
     ConsolidateBlocks,
     Split2QUnitaries
 )
+# for BasisTranslator
 from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
 basis_gates = ["rz", "sx", "x", "id", "cz"]
 
 # stage 1
-def compile_init(dag, opt_lvl):
+def compile_init(qc, opt_lvl):
     init_pm = PassManager()
     match opt_lvl:
         case 3:
@@ -69,7 +70,7 @@ def compile_init(dag, opt_lvl):
                 BasisTranslator(sel, basis_gates)
             ])
         
-    init_cir = init_pm.run(dag)
+    init_cir = init_pm.run(qc)
     return init_cir
 
 
