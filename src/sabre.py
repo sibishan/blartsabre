@@ -109,7 +109,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-def sabre(qubit_graph, quantum_circuit):
+def sabre(qubit_graph, quantum_circuit, verbose = False, return_log = False):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -121,7 +121,8 @@ def sabre(qubit_graph, quantum_circuit):
 
     if type(quantum_circuit) == QuantumCircuit:
         quantum_circuit = quantum_circuit.decompose()
-        print(quantum_circuit)
+        if verbose:
+            print(quantum_circuit)
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(qubit_graph)
 
@@ -153,18 +154,23 @@ def sabre(qubit_graph, quantum_circuit):
 
     best_iteration = min(gate_execution_log_iterations, key=lambda k: len(gate_execution_log_iterations[k][1]))
     best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
-    best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]
 
-    print("Best Iteration:")
-    print(f"#{len(best_gate_execution_log)} total gates")
-    print(f"#{len(best_swap_log)} inserted SWAPS")
-    print()
+    if verbose:
+        best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]
+        print("Best Iteration:")
+        print(f"#{len(best_gate_execution_log)} total gates")
+        print(f"#{len(best_swap_log)} inserted SWAPS")
+        print()
 
-    print("Initial Mapping:")
-    for i in range(num_logical_qubits):
-        print(f"Logical Qubit {i}: Physical Qubit {best_initial_mapping[i]}")
-    print()
+        print("Initial Mapping:")
+        for i in range(num_logical_qubits):
+            print(f"Logical Qubit {i}: Physical Qubit {best_initial_mapping[i]}")
+        print()
 
-    print("Physical Gate Log:")
-    for gate_log in best_gate_execution_log:
-        print(f"{gate_log[0]} -> {gate_log[1][0]} {gate_log[1][1]}")
+        print("Physical Gate Log:")
+        for gate_log in best_gate_execution_log:
+            print(f"{gate_log[0]} -> {gate_log[1][0]} {gate_log[1][1]}")
+
+    if return_log:
+        return best_initial_mapping, best_gate_execution_log
+    return best_initial_mapping

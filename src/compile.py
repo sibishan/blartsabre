@@ -22,15 +22,18 @@ from qiskit.transpiler.passes import (
 from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
 basis_gates = ["rz", "sx", "x", "id", "cz"]
 
+# layout & routing stage
+from .sabre import sabre
+from qiskit.transpiler import Layout
+
 # stage 1
 def compile_init(qc, opt_lvl):
     init_pm = PassManager()
     match opt_lvl:
-        case 3:
+        case 3 | 2:
             init_pm.append([
                 UnitarySynthesis(),
                 HighLevelSynthesis(),
-                BasisTranslator(sel, basis_gates),
                 ElidePermutations(),
                 RemoveDiagonalGatesBeforeMeasure(),
                 RemoveIdentityEquivalent(),
@@ -38,30 +41,16 @@ def compile_init(qc, opt_lvl):
                 ContractIdleWiresInControlFlow(),
                 CommutativeCancellation(),
                 ConsolidateBlocks(),
-                Split2QUnitaries()
-            ])
-        case 2:
-            init_pm.append([
-                UnitarySynthesis(),
-                HighLevelSynthesis(),
-                BasisTranslator(sel, basis_gates),
-                ElidePermutations(),
-                RemoveDiagonalGatesBeforeMeasure(),
-                RemoveIdentityEquivalent(),
-                InverseCancellation(),
-                ContractIdleWiresInControlFlow(),
-                CommutativeCancellation(),
-                ConsolidateBlocks(),
-                Split2QUnitaries()
+                Split2QUnitaries(),
+                BasisTranslator(sel, basis_gates)
             ])
         case 1:
             init_pm.append([
                 UnitarySynthesis(),
                 HighLevelSynthesis(),
-                BasisTranslator(sel, basis_gates),
                 InverseCancellation(),
                 ContractIdleWiresInControlFlow(),
-
+                BasisTranslator(sel, basis_gates)
             ])
         case 0:
             init_pm.append([
@@ -73,13 +62,19 @@ def compile_init(qc, opt_lvl):
     init_cir = init_pm.run(qc)
     return init_cir
 
+# stage 2
+def compile_layout(qubit_graph, init_cir, seed = None, verbose = False):
+    if seed is not None:
+        import random
+        random.seed(seed)
+    
+    initial_mapping = sabre(qubit_graph, init_cir, return_log=False, verbose=verbose)
 
-# def compile():
-#     pm = StagedPassManager()
+    #initial_mapping maps logical to physical
+    v2p = {init_cir.qubits[v]:  int(p) for v, p in initial_mapping.items()}
+    layout = Layout(v2p)
 
-#     # init stage
-#     pm.init = UnitarySynthesis()
-#     pm.init
+    return layout, initial_mapping
     
 
 # print("Plugins run by default init stage")
@@ -93,16 +88,3 @@ def compile_init(qc, opt_lvl):
 #     for task in pm.init.to_flow_controller().tasks:
 #         print(" -", type(task).__name__)
 
-# # test
-# from qiskit import QuantumCircuit
-# num_rows = 3
-# qc_entangled = QuantumCircuit(2 * num_rows, 2 * num_rows)
-# for i in range(num_rows):
-#     qc_entangled.h(i)
-#     qc_entangled.cx(i, i + num_rows)
-#     qc_entangled.measure(i, i)
-#     qc_entangled.measure(i + num_rows, i + num_rows)
-# from qiskit.converters import circuit_to_dag
-# dag = circuit_to_dag(qc_entangled)
-
-# print(compile_init(qc_entangled, opt_lvl=3))
