@@ -1,4 +1,4 @@
-from .convert import from_qiskit, from_qasm_file
+from src.convert import from_qiskit, from_qasm_file
 from qiskit import QuantumCircuit
 from bidict import bidict
 import random
