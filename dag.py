@@ -1,10 +1,3 @@
-"""
-DAG Utilities for Distributed Quantum Computing (DQC) Compilation
-
-This module provides data structures and utilities for representing and manipulating
-Directed Acyclic Graphs (DAGs) in the context of distributed quantum circuit compilation.
-"""
-
 import networkx as nx
 import matplotlib.pyplot as plt
 from typing import List, Set, Dict, Tuple, Optional, Any
@@ -36,13 +29,7 @@ class GateNode:
 
 
 class QuantumDAG:
-    """
-    Directed Acyclic Graph representation for quantum circuits with DQC support.
-    
-    This class provides a DAG-based representation of quantum circuits suitable for
-    distributed quantum computing compilation. It supports gate dependencies,
-    processor assignments, and various graph algorithms.
-    """
+    """Directed Acyclic Graph representation for quantum circuits with DQC support."""
     
     def __init__(self, num_qubits: int = 0):
         """

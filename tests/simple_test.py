@@ -1,5 +1,5 @@
-from src.mapper.sabre_layout import sabre
-from src.architecture import QubitNetworkGraph
+from mapper.sabre_layout import sabre
+from architecture import QubitNetworkGraph
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import QFT
 

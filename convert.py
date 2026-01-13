@@ -1,15 +1,7 @@
-"""
-Qiskit Circuit Converter for DQC DAG
-
-This module provides utilities to convert between Qiskit QuantumCircuit
-and our QuantumDAG representation for distributed quantum computing compilation.
-"""
-
-from typing import Optional, List, Dict
-from .dag import QuantumDAG
+from dag import QuantumDAG
 
 
-def from_qiskit(circuit) -> QuantumDAG:
+def from_qiskit(circuit):
     """
     Convert a Decomposed Qiskit QuantumCircuit to QuantumDAG.
     
@@ -18,13 +10,6 @@ def from_qiskit(circuit) -> QuantumDAG:
         
     Returns:
         QuantumDAG representation of the decomposed circuit
-        
-    Example:
-        >>> from qiskit import QuantumCircuit
-        >>> qc = QuantumCircuit(4)
-        >>> qc.h(0)
-        >>> qc.cx(0, 1)
-        >>> dag = from_qiskit(qc)
     """
     dag = QuantumDAG(num_qubits=circuit.num_qubits)
     
@@ -55,7 +40,7 @@ def from_qiskit(circuit) -> QuantumDAG:
     return dag
 
 
-def from_qasm_file(filepath: str) -> QuantumDAG:
+def from_qasm_file(filepath: str):
     """
     Load OpenQASM file and convert to QuantumDAG.
     

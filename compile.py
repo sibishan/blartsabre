@@ -23,7 +23,7 @@ from qiskit.circuit.equivalence_library import SessionEquivalenceLibrary as sel
 basis_gates = ["rz", "sx", "x", "id", "cz"]
 
 # layout & routing stage
-from .mapper.sabre_layout import sabre
+from mapper.sabre_layout import sabre
 from qiskit.transpiler import Layout
 
 # stage 1
