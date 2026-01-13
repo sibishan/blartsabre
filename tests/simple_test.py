@@ -1,16 +1,16 @@
 from src.sabre import sabre
-from src.architecture_graph import QubitNetworkGraph
+from src.architecture import QubitNetworkGraph
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import QFT
 
-qc_entangled = QuantumCircuit(2)
-qc_entangled.h(0)
-qc_entangled.cnot(0,1)
-qc_entangled.h(1)
-
-QFT_circuit = QuantumCircuit(4)
-QFT_circuit.append(QFT(4).decompose(),range(4))
+num_rows = 2
+qc_entangled = QuantumCircuit(2 * num_rows, 2 * num_rows)
+for i in range(num_rows):
+    qc_entangled.h(i)
+    qc_entangled.cx(i, i + num_rows)
+    qc_entangled.measure(i, i)
+    qc_entangled.measure(i + num_rows, i + num_rows)
 
 graph = QubitNetworkGraph([(0,1),(1,2),(2,3)], name="4-qubit line")
 
-sabre(graph, QFT_circuit)
+sabre(graph, qc_entangled, verbose=True)
