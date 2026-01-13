@@ -1,6 +1,6 @@
 from qiskit import QuantumCircuit
-from src.compile import compile_init, compile_layout
-from src.architecture import QubitNetworkGraph
+from compile import compile_init, compile_layout
+from architecture import QubitNetworkGraph
 
 num_rows = 2
 qc_entangled = QuantumCircuit(2 * num_rows, 2 * num_rows)
