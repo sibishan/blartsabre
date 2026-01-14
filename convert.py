@@ -4,40 +4,36 @@ from dag import QuantumDAG
 def from_qiskit(circuit):
     """
     Convert a Decomposed Qiskit QuantumCircuit to QuantumDAG.
-    
-    Args:
-        circuit: A Decomposed Qiskit QuantumCircuit object
-        
-    Returns:
-        QuantumDAG representation of the decomposed circuit
     """
-    dag = QuantumDAG(num_qubits=circuit.num_qubits)
-    
+    dag = QuantumDAG(num_qubits=circuit.num_qubits, num_clbits=circuit.num_clbits)
+
     for instruction in circuit.data:
-        if hasattr(instruction, 'operation'):
-            gate = instruction.operation
-            qubits = [circuit.find_bit(q).index for q in instruction.qubits]
-        else:
+        if not hasattr(instruction, "operation"):
             raise TypeError("Qiskit version < 1.0.2")
-        
+
+        gate = instruction.operation
+        qubits = [circuit.find_bit(q).index for q in instruction.qubits]
+        clbits = [circuit.find_bit(c).index for c in instruction.clbits] if getattr(instruction, "clbits", None) else []
+
         gate_type = gate.name.upper()
-        
-        # Extract parameters if any
+
         parameters = {}
-        if hasattr(gate, 'params') and gate.params:
+        if hasattr(gate, "params") and gate.params:
             for i, param in enumerate(gate.params):
                 try:
-                    parameters[f'param_{i}'] = float(param)
+                    parameters[f"param_{i}"] = float(param)
                 except (TypeError, ValueError):
                     raise TypeError("Issues at Decomposed Qiskit Circuit Conversion")
-        
+
         dag.add_gate(
             gate_type=gate_type,
             qubits=qubits,
-            parameters=parameters if parameters else None
+            clbits=clbits if clbits else None,
+            parameters=parameters if parameters else None,
         )
-    
+
     return dag
+
 
 
 def from_qasm_file(filepath: str):

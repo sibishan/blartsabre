@@ -63,12 +63,12 @@ def compile_init(qc, opt_lvl):
     return init_cir
 
 # stage 2
-def compile_layout(qubit_graph, init_cir, seed = None, verbose = False):
+def compile_layout(arch, init_cir, seed = None, verbose = False):
     if seed is not None:
         import random
         random.seed(seed)
     
-    initial_mapping = sabre(qubit_graph, init_cir, return_log=False, verbose=verbose)
+    initial_mapping = sabre(arch, init_cir, return_log=False, verbose=verbose)
 
     #initial_mapping maps logical to physical
     v2p = {init_cir.qubits[v]:  int(p) for v, p in initial_mapping.items()}
