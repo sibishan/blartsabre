@@ -19,7 +19,8 @@ class GateNode:
     """
     gate_id: str
     gate_type: str
-    qubits: Tuple[int]
+    qubits: Tuple[int, ...]
+    clbits: Tuple[int, ...] = ()
     parameters: Optional[Dict[str, float]] = None
     layer: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -31,7 +32,7 @@ class GateNode:
 class QuantumDAG:
     """Directed Acyclic Graph representation for quantum circuits with DQC support."""
     
-    def __init__(self, num_qubits: int = 0):
+    def __init__(self, num_qubits: int = 0, num_clbits: int = 0):
         """
         Initialize a quantum circuit DAG.
         
@@ -40,6 +41,7 @@ class QuantumDAG:
         """
         self.dag = nx.DiGraph()
         self.num_qubits = num_qubits
+        self.num_clbits = num_clbits
         self.gates: Dict[str, GateNode] = {}
         self._gate_counter = 0
         
@@ -53,6 +55,7 @@ class QuantumDAG:
         new_dag = QuantumDAG()
         new_dag.dag = deepcopy(self.dag)
         new_dag.num_qubits = deepcopy(self.num_qubits)
+        new_dag.num_clbits = deepcopy(self.num_clbits)
         new_dag.gates = deepcopy(self.gates)
         new_dag._gate_counter = deepcopy(self._gate_counter)
         new_dag._last_gate_on_qubit = deepcopy(self._last_gate_on_qubit)
@@ -64,7 +67,8 @@ class QuantumDAG:
                  qubits: List[int],
                  gate_id: Optional[str] = None,
                  parameters: Optional[Dict[str, float]] = None,
-                 auto_dependencies: bool = True) -> str:
+                 auto_dependencies: bool = True,
+                 clbits = None) -> str:
         """
         Add a quantum gate to the DAG.
         
@@ -86,7 +90,8 @@ class QuantumDAG:
         gate_node = GateNode(
             gate_id=gate_id,
             gate_type=gate_type,
-            qubits=qubits,
+            qubits=tuple(qubits),
+            clbits=tuple(clbits) if clbits is not None else (),
             parameters=parameters or {},
         )
         
@@ -199,7 +204,6 @@ class QuantumDAG:
     
     def get_front_layer(self) -> List[str]:
         """Get all GateNodes at the front layer (no predecessors/dependencies)."""
-        return [node for node, degree in self.dag.in_degree() if degree == 0]
         return [gate_id for gate_id, layer in self.compute_layers().items() if layer == 0]
     
     def get_back_layer(self) -> List[str]:
@@ -208,8 +212,7 @@ class QuantumDAG:
     
     def get_extended_layer(self, distance: int = 1) -> List[str]:
         """Get all gates at a specific depth layer from the front."""
-        layers = self.compute_layers()
-        return [gate_id for gate_id, layer in layers.items() if (layer <= distance and layer > 0)]
+        return [gate_id for gate_id, layer in self.compute_layers().items() if (layer <= distance and layer > 0)]
     
     def get_gate_from_node(self, node):
         return self.gates[node]

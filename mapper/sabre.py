@@ -59,21 +59,21 @@ def update_mapping(mapping, p_q1, p_q2):
     mapping.inv[p_q1] = temp2
     return mapping
 
-def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
+def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     circuit_dag = deepcopy(circuit_dag)
     initial_mapping = initial_mapping.copy()
 
     mapping = initial_mapping
     gate_execution_log = []
-    decay_array = [1 for _ in range(len(qubit_graph))]
-    decay_timer = [0 for _ in range(len(qubit_graph))]
+    decay_array = [1 for _ in range(len(arch))]
+    decay_timer = [0 for _ in range(len(arch))]
 
     front_layer = circuit_dag.get_front_layer()
     while len(front_layer) != 0:
         executable_gate_nodes = []
         for gate_node in front_layer:
             gate = circuit_dag.get_gate_from_node(gate_node)
-            if qubit_graph.check_gate_executable(gate, mapping):
+            if arch.check_gate_executable(gate, mapping):
                 executable_gate_nodes.append(gate_node)
         
         if len(executable_gate_nodes) != 0:
@@ -88,7 +88,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
             # A SWAP is required for the next gate
             score = dict()
             front_layer_gates = circuit_dag.get_gates_from_nodes(front_layer)
-            SWAP_candidates = get_SWAP_candidates(qubit_graph, mapping, front_layer_gates)
+            SWAP_candidates = get_SWAP_candidates(arch, mapping, front_layer_gates)
             for SWAP_candidate in SWAP_candidates:
                 temp_mapping = update_mapping(mapping.copy(),*SWAP_candidate)
                 score[SWAP_candidate] = SWAP_heuristic(circuit_dag, temp_mapping, dist_matrix, SWAP_candidate, decay_array)
@@ -97,7 +97,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
             gate_execution_log.append(("SWAP", best_SWAP))
             decay_array[best_SWAP[0]] = 1 + DECAY_VALUE
             decay_array[best_SWAP[1]] = 1 + DECAY_VALUE
-            for i in range(len(qubit_graph)):
+            for i in range(len(arch)):
                 if decay_array[i]:
                     decay_timer[i]+=1
                 if decay_timer[i] > 5:
@@ -109,7 +109,7 @@ def sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-def sabre(qubit_graph, quantum_circuit, verbose = False, return_log = False):
+def sabre(arch, quantum_circuit, verbose = False, return_log = False):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -124,7 +124,7 @@ def sabre(qubit_graph, quantum_circuit, verbose = False, return_log = False):
         if verbose:
             print(quantum_circuit)
         num_logical_qubits = quantum_circuit.num_qubits
-        num_physical_qubits = len(qubit_graph)
+        num_physical_qubits = len(arch)
 
         reduced_quantum_circuit = reduce_2_qubit_gates(quantum_circuit)
         reverse_quantum_circuit = reduced_quantum_circuit.inverse()
@@ -136,7 +136,7 @@ def sabre(qubit_graph, quantum_circuit, verbose = False, return_log = False):
             raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
     
 
-    dist_matrix = qubit_graph.get_distance_matrix()
+    dist_matrix = arch.get_distance_matrix()
 
     gate_execution_log_iterations = dict()
 
@@ -146,9 +146,9 @@ def sabre(qubit_graph, quantum_circuit, verbose = False, return_log = False):
         random.shuffle(random_mapping)
         initial_mapping = bidict(enumerate(random_mapping))
 
-        final_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
-        initial_mapping, _ = sabre_forward_pass(qubit_graph, dist_matrix, final_mapping, reverse_circuit_dag)
-        _, gate_execution_log = sabre_forward_pass(qubit_graph, dist_matrix, initial_mapping, circuit_dag)
+        final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+        initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
+        _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
 
         gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
 
