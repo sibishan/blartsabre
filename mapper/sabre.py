@@ -119,7 +119,7 @@ def sabre(arch, quantum_circuit, verbose = False, return_log = False):
     circuit_dag = None
     reverse_circuit_dag = None
 
-    if type(quantum_circuit) == QuantumCircuit:
+    if isinstance(quantum_circuit, QuantumCircuit):
         quantum_circuit = quantum_circuit.decompose()
         if verbose:
             print(quantum_circuit)

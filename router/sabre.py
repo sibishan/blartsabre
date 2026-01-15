@@ -33,6 +33,8 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.t(phys[0])
     elif gt == "TDG":
         out_qc.tdg(phys[0])
+    elif gt == "SX":
+        out_qc.sx(phys[0])
     elif gt == "RX":
         out_qc.rx(p.get("param_0"), phys[0])
     elif gt == "RY":
@@ -53,7 +55,7 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.swap(phys[0], phys[1])
 
     else:
-        raise ValueError(f"Unsupported gate_type for emission: {gate.gate_type}")
+        raise ValueError(f"Unsupported gate_type for emission: {gate.gate_type}") # add the gate when it is raised
 
 def safe_swap_mapping(mapping, p1, p2):
     """
@@ -103,9 +105,7 @@ def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
     h_basic = 0.0
     for g in front_gates:
         q1, q2 = g.qubits
-        p_q1 = temp_mapping[q1]
-        p_q2 = temp_mapping[q2]
-        h_basic += dist_matrix[p_q1][p_q2]
+        h_basic += dist_matrix[temp_mapping[q1]][temp_mapping[q2]]
 
     p1, p2 = swap_candidate
     decay_factor = 1 + max(decay_array[p1], decay_array[p2])
@@ -135,7 +135,7 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
         log: list of ("GATE", ...) abd (SWAP, (p1,p2))
     """
 
-    if type(quantum_circuit) == QuantumCircuit:
+    if isinstance(quantum_circuit, QuantumCircuit):
         dag = from_qiskit(quantum_circuit)
     else:
         raise ValueError("SABRE Router only accepts Qiskit QuantumCircuit")
@@ -208,5 +208,3 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
                         decay_timer[i] = 0
             
     return routed_qc, mapping, log
-
-
