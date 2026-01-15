@@ -1,4 +1,4 @@
-from convert import from_qiskit, from_qasm_file
+from convert import from_qiskit
 from qiskit import QuantumCircuit
 from bidict import bidict
 import random
@@ -134,6 +134,8 @@ def sabre(arch, quantum_circuit, verbose = False, return_log = False):
 
         if num_logical_qubits > num_physical_qubits:
             raise ValueError("Too many circuit qubits to perform algorithm on hardware network")
+    else:
+        raise ValueError("SABRE Layout only accepts Qiskit QuantumCircuit")
     
 
     dist_matrix = arch.get_distance_matrix()
