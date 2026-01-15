@@ -1,5 +1,6 @@
 from copy import deepcopy
 from qiskit import QuantumCircuit
+from convert import from_qiskit
 
 EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.5
@@ -32,12 +33,14 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.t(phys[0])
     elif gt == "TDG":
         out_qc.tdg(phys[0])
+    elif gt == "SX":
+        out_qc.sx(phys[0])
     elif gt == "RX":
-        out_qc.rx(p.get("theta"), phys[0])
+        out_qc.rx(p.get("param_0"), phys[0])
     elif gt == "RY":
-        out_qc.ry(p.get("theta"), phys[0])
+        out_qc.ry(p.get("param_0"), phys[0])
     elif gt == "RZ":
-        out_qc.rz(p.get("theta"), phys[0])
+        out_qc.rz(p.get("param_0"), phys[0])
     elif gt == "MEASURE":
         if len(gate.qubits) != 1 or len(gate.clbits) != 1:
             raise ValueError(f"MEASURE expects 1 qubit and 1 clbit, got {gate.qubits}, {gate.clbits}")
@@ -52,7 +55,7 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.swap(phys[0], phys[1])
 
     else:
-        raise ValueError(f"Unsupported gate_type for emission: {gate.gate_type}")
+        raise ValueError(f"Unsupported gate_type for emission: {gate.gate_type}") # add the gate when it is raised
 
 def safe_swap_mapping(mapping, p1, p2):
     """
@@ -102,7 +105,7 @@ def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
     h_basic = 0.0
     for g in front_gates:
         q1, q2 = g.qubits
-        h_basic += dist_matrix[temp_mapping[q1], decay_array[q2]]
+        h_basic += dist_matrix[temp_mapping[q1]][temp_mapping[q2]]
 
     p1, p2 = swap_candidate
     decay_factor = 1 + max(decay_array[p1], decay_array[p2])
@@ -122,7 +125,7 @@ def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
         decay_factor* (h_basic / len(front_gates)) + EXTENDED_HEURISTIC_WEIGHT * (h_ext / len(ext_gates))
     )
 
-def sabre_swap(arch, circuit_dag, initial_mapping):
+def sabre_swap(arch, quantum_circuit, initial_mapping):
     """
     Routes QuantumDAG by inserting SWAPs, starting from initial mapping
     
@@ -132,7 +135,11 @@ def sabre_swap(arch, circuit_dag, initial_mapping):
         log: list of ("GATE", ...) abd (SWAP, (p1,p2))
     """
 
-    dag = deepcopy(circuit_dag)
+    if isinstance(quantum_circuit, QuantumCircuit):
+        dag = from_qiskit(quantum_circuit)
+    else:
+        raise ValueError("SABRE Router only accepts Qiskit QuantumCircuit")
+    
     mapping = initial_mapping.copy()
     num_physical_qubits = len(arch)
     dist_matrix = arch.get_distance_matrix()
@@ -159,15 +166,16 @@ def sabre_swap(arch, circuit_dag, initial_mapping):
                 executable.append(node)
         
         if executable:
-            gate = dag.get_gate_from_node(node)
+            for node in executable:
+                gate = dag.get_gate_from_node(node)
 
-            emit_gate_qiskit(routed_qc, gate, mapping)
-            log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
+                emit_gate_qiskit(routed_qc, gate, mapping)
+                log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
 
-            for q in gate.qubits:
-                decay_array[mapping[q]] = 1.0
+                for q in gate.qubits:
+                    decay_array[mapping[q]] = 1.0
 
-            dag.remove_gate(node)
+                dag.remove_gate(node)
 
         else:
             front_gates = [g for g in dag.get_gates_from_nodes(front) if is_2q(g)]
@@ -186,7 +194,7 @@ def sabre_swap(arch, circuit_dag, initial_mapping):
 
             routed_qc.swap(p1, p2)
             safe_swap_mapping(mapping, p1, p2)
-            log.append("SWAP", (p1, p2))
+            log.append(("SWAP", (p1, p2)))
 
             decay_array[p1] = 1.0 + DECAY_VALUE
             decay_array[p2] = 1.0 + DECAY_VALUE
@@ -200,5 +208,3 @@ def sabre_swap(arch, circuit_dag, initial_mapping):
                         decay_timer[i] = 0
             
     return routed_qc, mapping, log
-
-
