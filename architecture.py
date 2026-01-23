@@ -1,58 +1,177 @@
-from typing import List, Tuple
 import networkx as nx
-import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 3
+class Edge:
+    # physical qubits, undirected edge
+    def __init__(self, p1, p2):
+        self.p1 = p1
+        self.p2 = p2
+
+class TeleportEdge:
+    # physical qubits, directed triadic hyperedge
+    def __init__(self, p_source, p_mediator, p_target):
+        self.p_source = p_source
+        self.p_mediator = p_mediator
+        self.p_target = p_target
+
+class Architecture:
+    def __init__(self, num_qubits, qubit_to_core, intra_core_edges, inter_core_edges=None, name="arch"):
+        self.name = name
+
+        self.num_qubits = int(num_qubits)
+        self.qubit_to_core = list(qubit_to_core)
+        if len(self.qubit_to_core) != self.num_qubits:
+            raise ValueError(f"Invalid qubit_to_core mapping: expected length {num_qubits}")
+        
+        self.num_cores = (max(self.qubit_to_core) + 1) if self.num_qubits > 0 else 0
+
+        self.edges = list(intra_core_edges)
+        self.inter_core_edges = list(inter_core_edges or [])
+
+        self.qubit_to_edges = []
+        self.teleport_edges = []
+        self.communication_qubits = []
+        self.qubit_to_teleport_edges_as_source = []
+        self.qubit_to_teleport_edges_as_mediator = []
+        self.qubit_to_teleport_edges_as_target = []
+        self.qubit_to_teleport_edges = []
+
+        self.swap_duration = 3
+
+        self.tp_source_busy_offset = 1
+        self.tp_source_busy_duration = 3
+
+        self.tp_mediator_busy_offset = 0
+        self.tp_mediator_busy_duration = 3
+
+        self.tp_target_busy_offset = 0
+        self.tp_target_busy_duration = 5
+
+        self.teleport_duration = max(
+            self.tp_source_busy_offset + self.tp_source_busy_duration,
+            self.tp_mediator_busy_offset + self.tp_mediator_busy_duration,
+            self.tp_target_busy_offset + self.tp_target_busy_duration
+        )
+
+        self.update_qubit_to_edges()
+        self.build_teleport_edges()
+
+        self.num_edges = len(self.edges)
+        self.num_tp_edges = len(self.teleport_edges)
+
+        self.communication_qubits = list(set(self.communication_qubits))
+
+        self.core_comm_qubits = [[] for _ in range(self.num_cores)]
+        for p in self.communication_qubits:
+            self.core_comm_qubits[self.qubit_to_core[p]].append(p)
+        
+        self.core_qubits = [[] for _ in range(self.num_cores)]
+        for p in range(self.num_qubits):
+            self.core_qubits[self.qubit_to_core[p]].append(p)
+
+    def update_qubit_to_edges(self):
+        self.qubit_to_edges = [[] for _ in range(self.num_qubits)]
+        for i, edge in enumerate(self.edges):
+            self.qubit_to_edges[edge.p1].append(i)
+            self.qubit_to_edges[edge.p2].append(i)
     
-class QubitNetworkGraph(nx.Graph):
-    def __init__(self, *args, **kwargs):
-        super(QubitNetworkGraph, self).__init__(*args, **kwargs)
-        nx.set_edge_attributes(self, 'data', 'type')
+    def build_teleport_edges(self):
+        self.teleport_edges = []
+        self.communication_qubits = []
 
-    def get_distance_matrix(self):
-        return nx.floyd_warshall(self)
+        for edge in self.inter_core_edges:
+            p1, p2 = edge.p1, edge.p2
+
+            self.communication_qubits.append(p1)
+            self.communication_qubits.append(p2)
+
+            # forward: neighbours of p1 teleport via mediator p1 to p2
+            for e_idx in self.qubit_to_edges[p1]:
+                le = self.edges[e_idx]
+                p1_neighbour = le.p1 if le.p1 != p1 else le.p2
+                self.teleport_edges.append(TeleportEdge(p_source=p1_neighbour, p_mediator=p1, p_target=p2))
+            
+            # reverse: neighbours of p2 teleport via mediator p2 to p1
+            for e_idx in self.qubit_to_edges[p2]:
+                le = self.edges[e_idx]
+                p2_neighbour = le.p1 if le.p1 != p2 else le.p2
+                self.teleport_edges.append(TeleportEdge(p_source=p2_neighbour, p_mediator=p2, p_target=p1))
+        
+        # build indices for teleport edges
+        self.qubit_to_teleport_edges_as_source = [[] for _ in range(self.num_qubits)]
+        self.qubit_to_teleport_edges_as_mediator = [[] for _ in range(self.num_qubits)]
+        self.qubit_to_teleport_edges_as_target = [[] for _ in range(self.num_qubits)]
+        self.qubit_to_teleport_edges = [[] for _ in range(self.num_qubits)]
+
+        for e, te in enumerate(self.teleport_edges):
+            self.qubit_to_teleport_edges_as_source[te.p_source].append(e)
+            self.qubit_to_teleport_edges_as_mediator[te.p_mediator].append(e)
+            self.qubit_to_teleport_edges_as_target[te.p_target].append(e)
+
+            self.qubit_to_teleport_edges[te.p_source].append(e)
+            self.qubit_to_teleport_edges[te.p_mediator].append(e)
+            self.qubit_to_teleport_edges[te.p_target].append(e)
+
+    # APIs
+
+    def is_comm_qubit(self, qubit):
+        return qubit in self.communication_qubits
     
-    def check_gate_executable(self, gate, mapping):
-        q1, q2 = gate.qubits
-        return self.has_edge(mapping[q1],mapping[q2])
- 
-class DistributedQubitNetworkGraph(QubitNetworkGraph):
-    def __init__(self, *args, comm_edges=[], **kwargs):
-        super(DistributedQubitNetworkGraph, self).__init__(*args, **kwargs)
-        self.add_edges_from(comm_edges, type='comm', weight = COMM_EDGE_WEIGHT)
+    def get_qubit_core(self, qubit):
+        return self.qubit_to_core[qubit]
+    
+    def get_core_distance_matrix(self):
+        core_graph = nx.Graph()
+        core_graph.add_edges_from([(self.get_qubit_core(e.p1), self.get_qubit_core(e.p2)) for e in self.inter_core_edges])
+        return nx.floyd_warshall_numpy(core_graph, nodelist=range(self.num_cores), weight=None)
+    
+    def build_weighted_graph(self, local_w=1, teleport_w=None):
+        if teleport_w is None:
+            teleport_w = self.teleport_duration
 
-def tokyo_arch():
-    edges = []
+        G = nx.Graph()
+        for e in self.edges:
+            G.add_edge(e.p1, e.p2, weight=local_w)
+        for e in self.inter_core_edges:
+            G.add_edge(e.p1, e.p2, weight=teleport_w)
+        return G
+    
+    def distance(self, q1, q2, local_w=1, teleport_w=None):
+        G = self.build_weighted_graph(local_w=local_w, teleport_w=teleport_w)
+        return nx.dijkstra_path_length(G, q1, q2, weight="weight")
 
-    # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
-    for start in (0, 5, 10, 15):
-        for i in range(start, start + 4):
-            edges.append((i, i + 1))
+if __name__ == "__main__":
+    num_qubits = 12
+    qubit_to_core = [0,0,0,0, 1,1,1,1, 2,2,2,2]
 
-    # vertical links between rows: i <-> i+5 for i = 0..14
-    for i in range(0, 15):
-        edges.append((i, i + 5))
+    # core 0: line 0-1-2-3
+    edges0 = [Edge(0,1), Edge(1,2), Edge(2,3)]
+    # core 1: star centred at 4
+    edges1 = [Edge(4,5), Edge(4,6), Edge(4,7)]
+    # core 2: ring
+    edges2 = [Edge(8,9), Edge(9,10), Edge(10,11), Edge(11,8)]
 
-    # diagonals +6 for these i
-    for i in (1, 3, 5, 7, 11, 13):
-        edges.append((i, i + 6))
+    intra_core_edges = edges0 + edges1 + edges2
 
-    # diagonals +4 for these i
-    for i in (2, 4, 6, 8, 12, 14):
-        edges.append((i, i + 4))
+    # inter core links between communication qubits
+    inter_core_edges = [
+        Edge(2,4), # core0 comm qubit 2 <-> core1 comm qubit 4
+        Edge(3,8) # core0 comm qubit 3 <-> core1 comm qubit 8
+    ]
 
-    return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
+    arch = Architecture(
+        num_qubits=num_qubits,
+        qubit_to_core=qubit_to_core,
+        intra_core_edges=intra_core_edges,
+        inter_core_edges=inter_core_edges,
+        name="star-line-ring"
+    )
 
+    print("name:", arch.name)
+    print("num_qubits:", arch.num_qubits)
+    print("num_cores:", arch.num_cores)
+    print("num_edges:", arch.num_edges)
+    print("num_tp_edges:", arch.num_tp_edges)
+    print("comm_qubits:", sorted(arch.communication_qubits))
 
-# if __name__ == '__main__':
-#     graph = QubitNetworkGraph([(0,1),(1,2),(1,3),(3,4)], name="Ourense")
-#     print(graph)
-#     print(graph.get_distance_matrix())
-#     subax1 = plt.subplot(121)
-#     nx.draw(graph)
-
-#     distributed_graph = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7)],comm_edges=[(1,6)])
-#     subax1 = plt.subplot(122)
-#     nx.draw(distributed_graph)
-#     print(distributed_graph)
-#     plt.show() 
+    print("dist(0, 11):", arch.distance(0, 11, local_w=1))
+    
