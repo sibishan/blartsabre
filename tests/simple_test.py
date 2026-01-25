@@ -22,7 +22,7 @@ arch = QubitNetworkGraph([(0,1),(1,2),(2,3)], name="4-qubit line")
 initial_mapping = sabre(arch, qc, verbose=True)
 
 routed_qc, mapping, log = sabre_swap(arch, qc, initial_mapping)
-
+print(arch.distance_matrix)
 print(routed_qc)
 print(mapping)
 print(log)

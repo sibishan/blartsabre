@@ -2,7 +2,7 @@ from typing import List, Tuple
 import networkx as nx
 import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 3
+COMM_EDGE_WEIGHT = 10
     
 class QubitNetworkGraph(nx.Graph):
     def __init__(self, *args, **kwargs):
@@ -20,7 +20,51 @@ class QubitNetworkGraph(nx.Graph):
     def draw(self):
         nx.draw(self)
         plt.show()
- 
+
+class SingleCoreDQGraph(QubitNetworkGraph):
+    def __init__(self, *args, comm_edges = [], **kwargs):
+        super(SingleCoreDQGraph, self).__init__(*args, **kwargs)
+        
+        # Store communication edges
+        self.comm_edges = comm_edges
+        self.data_edges = [e for e in self.edges() if e not in comm_edges and (e[1], e[0]) not in comm_edges]
+        
+        # Set default weight=1.0 for all edges
+        for u, v in self.edges():
+            self[u][v]['weight'] = 1.0
+        
+        # Set custom weight for communication edges
+        if comm_edges:
+            for u, v in comm_edges:
+                if self.has_edge(u, v):
+                    self[u][v]['weight'] = COMM_EDGE_WEIGHT
+        
+        # Recompute distance matrix with weights
+        self.distance_matrix = dict(nx.floyd_warshall(self, weight='weight'))
+    
+    def draw(self):
+        """Draw graph with communication edges highlighted"""
+        pos = nx.spring_layout(self)
+        
+        # Identify communication qubits
+        comm_subgraph = nx.Graph(self.comm_edges)
+        comm_qubits = list(comm_subgraph.nodes())
+        non_comm_qubits = [n for n in self.nodes() if n not in comm_qubits]
+        
+        # Draw nodes
+        nx.draw_networkx_nodes(self, pos, nodelist=comm_qubits, node_shape="h", 
+                              linewidths=1, edgecolors="black", node_color="white")
+        nx.draw_networkx_nodes(self, pos, nodelist=non_comm_qubits, node_shape="o", 
+                              linewidths=1, edgecolors="black", node_color="white")
+        
+        # Draw edges
+        nx.draw_networkx_edges(self, pos, edgelist=self.comm_edges, edge_color="red")
+        nx.draw_networkx_edges(self, pos, edgelist=self.data_edges, edge_color="black")
+        
+        # Draw labels
+        nx.draw_networkx_labels(self, pos)
+        plt.show()
+        
 class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
     def __init__(self, *args, core_node_groups=[], **kwargs):
