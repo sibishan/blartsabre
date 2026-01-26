@@ -9,7 +9,7 @@ class Config:
     decay_reset: int = 5
     optimize_initial: bool = False
     teleport_bonus: int = 100 # 100
-    telegate_bonus: int = 100 #-1000 # 100 # 1000 #-1000 # disable telegates
+    telegate_bonus: int = 0 # DISABLE TELEGATE
     safety_valve_iters : int = 100
     extended_set_size : int = 20
     full_core_penalty : int = 10
@@ -18,7 +18,7 @@ class Config:
     
     swap_decay : float = 0.002
     teleport_decay : float = 0.005
-    telegate_decay : float = 0.005
+    telegate_decay : float = 0.0 # DISABLE TELEGATE
     
     initial_layout_hun_like : bool = True
     
