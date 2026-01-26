@@ -5,9 +5,9 @@ import numpy as np
 
 from copy import deepcopy
 
-from .layout import Layout
-from .utils import NpEncoder, SparseBucketPriorityQueue
-from .plotting import plot_iteration
+from benchmarks.og_telesabre.layout import Layout
+from benchmarks.og_telesabre.utils import NpEncoder, SparseBucketPriorityQueue
+from benchmarks.og_telesabre.plotting import plot_iteration
 
 
 
@@ -190,10 +190,9 @@ def initial_layout(config, circuit, architecture):
                         virt_to_core[q] = c
                         capacities[c] -= 1
                         break
-
-            assert np.all(virt_to_core[:circuit.num_qubits] != -1), \
-                f"Could not place logicals with 2-free-per-core rule. capacities={capacities.tolist()}"
-
+            
+        assert np.all(virt_to_core[:circuit.num_qubits] != -1), \
+            f"Could not place logicals with 2-free-per-core rule. capacities={capacities.tolist()}"
                     
         core_to_virt = [[] for c in range(architecture.num_cores)] 
         for c in range(architecture.num_cores):
@@ -487,8 +486,8 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
                 
                 candidate_swaps = []
                 candidate_teleports = []
-                # candidate_telegates_nodes = []    # DISABLE TELEGATE
-                # candidate_telegates = []          # DISABLE TELEGATE
+                candidate_telegates_nodes = []
+                candidate_telegates = []
                 
                 scores = []
                 front_scores = []
@@ -561,16 +560,14 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
                     for i, (virt1, virt2) in enumerate(separated_pairs):
                         phys1, phys2 = layout.get_phys(virt1), layout.get_phys(virt2)
                         path = shortest_paths[i]
-
-                        # DISABLE TELEGATE
-                        # if len(path) == 4:
-                        #     phys_g1, phys_m1, phys_m2, phys_g2 = path
-                        #     assert phys1 == phys_g1 and phys2 == phys_g2
-                        #     if layout.is_phys_free(phys_m1) and layout.is_phys_free(phys_m2) and \
-                        #         architecture.is_comm_qubit(phys_m1) and architecture.is_comm_qubit(phys_m2) and \
-                        #             coupling_graph.has_edge(phys1, phys_m1) and coupling_graph.has_edge(phys_m2, phys2):
-                        #         candidate_telegates.append((phys_g1, phys_m1, phys_m2, phys_g2))
-                        #         candidate_telegates_nodes.append(separated_nodes[i])
+                        if len(path) == 4:
+                            phys_g1, phys_m1, phys_m2, phys_g2 = path
+                            assert phys1 == phys_g1 and phys2 == phys_g2
+                            if layout.is_phys_free(phys_m1) and layout.is_phys_free(phys_m2) and \
+                                architecture.is_comm_qubit(phys_m1) and architecture.is_comm_qubit(phys_m2) and \
+                                    coupling_graph.has_edge(phys1, phys_m1) and coupling_graph.has_edge(phys_m2, phys2):
+                                candidate_telegates.append((phys_g1, phys_m1, phys_m2, phys_g2))
+                                candidate_telegates_nodes.append(separated_nodes[i])
                     
                         needed_comm_qubits_g = [p for p in path if architecture.is_comm_qubit(p)]
                         phys_fwd_med, phys_fwd_tgt = needed_comm_qubits_g[0], needed_comm_qubits_g[1]
@@ -637,16 +634,15 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
                     if candidate_teleports:
                         print(f"    Teleport scores: {list(map(lambda x: float(round(x,2)), scores[-len(candidate_teleports):]))}")
                     
-                    # DISABLE TELEGATE
-                    # # Current score (apply telegate if any)
-                    # if candidate_telegates:
-                    #     decay = 1 # capiamo
-                    #     decay = max(decay_factors[p] for p in candidate_telegates[0])
-                    #     score, front_energy, future_energy = calculate_energy(config, dag, architecture, temp_layout, temp_nearest_free_to_comms_queues, decay, node_to_gate, local_distance_matrix, full_core_penalty, solving_deadlock)
-                    #     scores.append(score - config.telegate_bonus)
-                    #     front_scores.append(front_energy)
-                    #     future_scores.append(future_energy)
-                    #     print(f"    Telegate score: {scores[-1]:.2f}")
+                    # Current score (apply telegate if any)
+                    if candidate_telegates:
+                        decay = 1 # capiamo
+                        decay = max(decay_factors[p] for p in candidate_telegates[0])
+                        score, front_energy, future_energy = calculate_energy(config, dag, architecture, temp_layout, temp_nearest_free_to_comms_queues, decay, node_to_gate, local_distance_matrix, full_core_penalty, solving_deadlock)
+                        scores.append(score - config.telegate_bonus)
+                        front_scores.append(front_energy)
+                        future_scores.append(future_energy)
+                        print(f"    Telegate score: {scores[-1]:.2f}")
                     
                     # Find best swap (lowest score)
                     if not scores:
@@ -693,18 +689,16 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
                         core_source = architecture.get_qubit_core(phys_source)
                         for p_comm in architecture.core_comm_qubits[core_source]:
                             nearest_free_to_comms_queues[p_comm].add_or_update(phys_source, local_distance_matrix[p_comm][phys_source])
-                    
-                    # DISABLE TELEGATE
-                    # # Apply Telegate
-                    # else:
-                    #     for k, node in enumerate(candidate_telegates_nodes):
-                    #         dag.remove_node(node)
-                    #         telegate_count += 1
-                    #         last_op = candidate_telegates[k]
-                    #         executed_gates_nodes.append(node)
-                    #         for p in candidate_telegates[k]:
-                    #             decay_factors[p] += config.telegate_decay
-                    #     print("  Applied", len(candidate_telegates), "telegates.")
+                    # Apply Telegate
+                    else:
+                        for k, node in enumerate(candidate_telegates_nodes):
+                            dag.remove_node(node)
+                            telegate_count += 1
+                            last_op = candidate_telegates[k]
+                            executed_gates_nodes.append(node)
+                            for p in candidate_telegates[k]:
+                                decay_factors[p] += config.telegate_decay
+                        print("  Applied", len(candidate_telegates), "telegates.")
                         
                     executed_ops.append(last_op)
                     operations.append(('move', *last_op))
@@ -730,7 +724,7 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
 
                 #plot_iteration(layout, architecture, circuit, f"images/layout_iter_{iteration:04}.png", gates=executed_gates, ops=executed_ops, dag=dag, node_to_gate=node_gate)
 
-                candidate_ops = candidate_swaps + candidate_teleports # + candidate_telegates # DISABLE TELEGATE
+                candidate_ops = candidate_swaps + candidate_teleports + candidate_telegates
                 # sort by score
                 candidate_ops = [op for _, op in sorted(zip(scores, candidate_ops))]
                 future_scores = [op for _, op in sorted(zip(scores, future_scores))]
@@ -796,10 +790,8 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
         with open("viewer/data.json", "w") as f:
             json.dump({"architecture": arch_data, "circuit": circuit_data, "iterations": iterations_data}, f, cls=NpEncoder)
         
-    # DISABLE TELEFATE HARD CHECK: telegates must not appear
-    assert all(op[0] != "move" or len(op[1:]) != 4 for op in operations), "Telegate move found in operations"
-
     # Count Ops
+    
     swap_count = 0
     teleportation_count = 0
     telegate_count = 0
@@ -816,7 +808,7 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
                 for q in op[1:]:
                     used_qubits[q] = True
             elif len(op[1:]) == 4:
-                # telegate_count += 1 # DISABLE TELEGATE
+                telegate_count += 1
                 for q in op[1:]:
                     used_qubits[q] = True
         elif op[0] == 'gate':
@@ -855,4 +847,3 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
     print(f"  Solved Deadlocks: {solved_deadlocks}")
     
     return swap_count, teleportation_count, telegate_count, circuit_depth, teleport_depth, solved_deadlocks, first_layout, solving_deadlock
-

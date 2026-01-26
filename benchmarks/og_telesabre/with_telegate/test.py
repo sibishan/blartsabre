@@ -1,7 +1,7 @@
 from qiskit import qasm2
 
-from .architecture import Architecture, Edge, TeleportEdge
-from .circuit import Circuit
+from benchmarks.og_telesabre.architecture import Architecture, Edge, TeleportEdge
+from benchmarks.og_telesabre.circuit import Circuit
 
 from .config import Config
 from .telesabre import run_telesabre
@@ -27,8 +27,8 @@ intra_core_edges = edges0 + edges1 + edges2
 
 # inter core links between communication qubits
 inter_core_edges = [
-    Edge(2,5), # core0 comm qubit 2 <-> core1 comm qubit 4
-    Edge(3,10) # core0 comm qubit 3 <-> core1 comm qubit 8
+    Edge(2,5), # core0 comm qubit 2 <-> core1 comm qubit 5
+    Edge(3,10) # core0 comm qubit 3 <-> core1 comm qubit 10
 ]
 
 arch = Architecture(
@@ -39,6 +39,7 @@ arch = Architecture(
     name="star-line-ring"
 )
 
+# install graphviz for FileNotFoundError: [Errno 2] "neato" not found in path using sudo apt-get update && sudo apt-get install -y graphviz
 swaps, tps, telegate, depth, tp_depth, deadlocks, initial_layout, solving_deadlock = run_telesabre(config, cir, arch)
 
 print(initial_layout)
