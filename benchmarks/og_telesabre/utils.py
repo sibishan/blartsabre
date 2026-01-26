@@ -1,9 +1,7 @@
 import json
- 
 import numpy as np
- 
- 
-    
+
+
 class SparseBucketPriorityQueue:
     def __init__(self):
         self.buckets = {}  # Maps priority → set of items with that priority
@@ -61,8 +59,6 @@ class SparseBucketPriorityQueue:
     def is_empty(self):
         return len(self.item_to_priority) == 0
     
-    
-    
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -73,3 +69,4 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
+    

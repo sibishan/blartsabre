@@ -1,8 +1,6 @@
 import colorsys
-
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-
 
 
 def plot_iteration(layout, architecture, circuit, filename, gates=None, ops=None, dag=None, node_to_gate=None):
@@ -98,7 +96,6 @@ def plot_iteration(layout, architecture, circuit, filename, gates=None, ops=None
     fig.savefig(filename, bbox_inches='tight')
 
 
-
 def generate_hex_colors(n, saturation=0.8, lightness=0.8):
     colors = []
     for i in range(n):
@@ -107,4 +104,3 @@ def generate_hex_colors(n, saturation=0.8, lightness=0.8):
         hex_color = f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
         colors.append(hex_color)
     return colors
-

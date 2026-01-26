@@ -1,5 +1,6 @@
 import networkx as nx
 
+
 class Edge:
     # physical qubits, undirected edge
     def __init__(self, p1, p2):
@@ -138,40 +139,3 @@ class Architecture:
     def distance(self, q1, q2, local_w=1, teleport_w=None):
         G = self.build_weighted_graph(local_w=local_w, teleport_w=teleport_w)
         return nx.dijkstra_path_length(G, q1, q2, weight="weight")
-
-if __name__ == "__main__":
-    num_qubits = 12
-    qubit_to_core = [0,0,0,0, 1,1,1,1, 2,2,2,2]
-
-    # core 0: line 0-1-2-3
-    edges0 = [Edge(0,1), Edge(1,2), Edge(2,3)]
-    # core 1: star centred at 4
-    edges1 = [Edge(4,5), Edge(4,6), Edge(4,7)]
-    # core 2: ring
-    edges2 = [Edge(8,9), Edge(9,10), Edge(10,11), Edge(11,8)]
-
-    intra_core_edges = edges0 + edges1 + edges2
-
-    # inter core links between communication qubits
-    inter_core_edges = [
-        Edge(2,4), # core0 comm qubit 2 <-> core1 comm qubit 4
-        Edge(3,8) # core0 comm qubit 3 <-> core1 comm qubit 8
-    ]
-
-    arch = Architecture(
-        num_qubits=num_qubits,
-        qubit_to_core=qubit_to_core,
-        intra_core_edges=intra_core_edges,
-        inter_core_edges=inter_core_edges,
-        name="star-line-ring"
-    )
-
-    print("name:", arch.name)
-    print("num_qubits:", arch.num_qubits)
-    print("num_cores:", arch.num_cores)
-    print("num_edges:", arch.num_edges)
-    print("num_tp_edges:", arch.num_tp_edges)
-    print("comm_qubits:", sorted(arch.communication_qubits))
-
-    print("dist(0, 11):", arch.distance(0, 11, local_w=1))
-    
