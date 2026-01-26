@@ -51,7 +51,7 @@ def DQC_contracted_graph(arch, temp_mapping, q1, q2):
         core = arch.qubit_core_map[comm_node]
 
         if len(core_free_nodes_map[core]) == 0:
-            raise DeadlockError()
+            raise DeadlockError(f"core {core} has 0 free nodes, free_nodes={free_nodes}")
 
         free_node_distances = []
         for free_node in core_free_nodes_map[core]:
@@ -253,7 +253,7 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
         front_layer = circuit_dag.get_front_layer()
         reset_timer -= 1
         if reset_timer < 0:
-            raise DeadlockError
+            raise DeadlockError("reset_timer expired in sabre_forward_pass")
 
     return mapping, gate_execution_log
 
@@ -289,7 +289,12 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
 
     dist_matrix = arch.get_distance_matrix()
 
+    num_free = num_physical_qubits - num_logical_qubits
+    num_cores = len(arch.core_node_groups)
+    print("num_free", num_free, "num_cores", num_cores)
+
     gate_execution_log_iterations = dict()
+    deadlocks = 0
 
     for iteration in range(NUM_ITERATIONS):
 
@@ -298,6 +303,17 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
             random.shuffle(random_mapping)
             initial_mapping = bidict([(i,j) for j,i in enumerate(random_mapping)])
 
+            free_nodes = [initial_mapping[i] for i in initial_mapping if i < 0]
+            num_cores = len(arch.core_node_groups)
+
+            free_per_core = [0] * num_cores
+            for p in free_nodes:
+                free_per_core[arch.qubit_core_map[p]] += 1
+
+            if 0 in free_per_core:
+                print("free_per_core", free_per_core, "free_nodes", free_nodes)
+
+
             final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
             initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
             _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
@@ -305,8 +321,13 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(iteration)
 
-        except DeadlockError:
-            pass
+        except DeadlockError as e:
+            deadlocks += 1
+            print("deadlock", iteration, str(e))
+            continue
+    
+    if not gate_execution_log_iterations:
+        raise RuntimeError(f"No successful iterations, deadlocks={deadlocks}/{NUM_ITERATIONS}")
 
     best_iteration = min(gate_execution_log_iterations, key=lambda k: len(gate_execution_log_iterations[k][1]))
     best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
