@@ -202,10 +202,7 @@ def TWO_TOKYO():
 
     # inter-core links (pick your "communication qubits" here)
     inter_core_edges = [
-        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20
-        Edge(9, 26),
-        Edge(14, 30),
-        Edge(19, 35),
+        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
     ]
 
     arch = Architecture(
