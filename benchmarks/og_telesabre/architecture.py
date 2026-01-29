@@ -170,9 +170,7 @@ def STAR_LINE_RING():
 
     return arch
 
-@staticmethod
-def TWO_TOKYO():
-    def tokyo_edges(offset: int):
+def tokyo_edges(offset: int):
         e = []
 
         # 4 horizontal lines of length 5
@@ -193,6 +191,8 @@ def TWO_TOKYO():
 
         return e
 
+@staticmethod
+def TWO_TOKYO():
     num_qubits = 40
     qubit_to_core = [0] * 20 + [1] * 20
 
@@ -200,7 +200,7 @@ def TWO_TOKYO():
     # core 1: tokyo on qubits 20..39
     intra_core_edges = tokyo_edges(0) + tokyo_edges(20)
 
-    # inter-core links (pick your "communication qubits" here)
+    # inter-core links
     inter_core_edges = [
         Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
     ]
@@ -211,6 +211,32 @@ def TWO_TOKYO():
         intra_core_edges=intra_core_edges,
         inter_core_edges=inter_core_edges,
         name="two-tokyo"
+    )
+
+    return arch
+
+@staticmethod
+def THREE_TOKYO():
+    num_qubits = 60
+    qubit_to_core = [0] * 20 + [1] * 20 + [2] * 20
+
+    # core 0: tokyo on qubits 0..19
+    # core 1: tokyo on qubits 20..39
+    # core 1: tokyo on qubits 40..59
+    intra_core_edges = tokyo_edges(0) + tokyo_edges(20) + tokyo_edges(40)
+
+    # inter-core links
+    inter_core_edges = [
+        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
+        Edge(24, 40)    # core1 qubit 24 <-> core2 qubit 40,
+    ]
+
+    arch = Architecture(
+        num_qubits=num_qubits,
+        qubit_to_core=qubit_to_core,
+        intra_core_edges=intra_core_edges,
+        inter_core_edges=inter_core_edges,
+        name="three-tokyo"
     )
 
     return arch
