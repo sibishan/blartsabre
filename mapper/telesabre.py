@@ -159,34 +159,41 @@ def swap_to_target(mapping, start, target, arch, early_stop=0):
 
 def update_mapping_teleport(mapping, p_qstart, p_qcomm1, p_qcomm2, arch):
     l_qstart = mapping.inv[p_qstart]
+
     # Swap nearest free qubit to comm 1
-    free_nodes = [mapping[i] for i in mapping if i<0]
+    free_nodes = [mapping[i] for i in mapping if i < 0]
     core_1 = arch.qubit_core_map[p_qcomm1]
     core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in arch.core_node_groups]
-    free_node_distance_map = dict()
-    for free_node in core_free_nodes_map[core_1]:
-        free_node_distance_map[free_node] = arch.get_distance_matrix()[p_qcomm1][free_node]
+
+    if len(core_free_nodes_map[core_1]) == 0:
+        raise DeadlockError(f"core {core_1} has 0 free nodes for comm1={p_qcomm1}, free_nodes={free_nodes}")
+
+    free_node_distance_map = {free_node: arch.get_distance_matrix()[p_qcomm1][free_node]
+                              for free_node in core_free_nodes_map[core_1]}
     nearest_free_1 = min(free_node_distance_map, key=free_node_distance_map.get)
     mapping = swap_to_target(mapping, nearest_free_1, p_qcomm1, arch, early_stop=0)
+
     # Swap nearest free qubit to comm 2
-    free_nodes = [mapping[i] for i in mapping if i<0]
+    free_nodes = [mapping[i] for i in mapping if i < 0]
     core_2 = arch.qubit_core_map[p_qcomm2]
     core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in arch.core_node_groups]
-    free_node_distance_map = dict()
-    for free_node in core_free_nodes_map[core_2]:
-        free_node_distance_map[free_node] = arch.get_distance_matrix()[p_qcomm1][free_node]
+
+    if len(core_free_nodes_map[core_2]) == 0:
+        raise DeadlockError(f"core {core_2} has 0 free nodes for comm2={p_qcomm2}, free_nodes={free_nodes}")
+
+    free_node_distance_map = {free_node: arch.get_distance_matrix()[p_qcomm2][free_node]
+                              for free_node in core_free_nodes_map[core_2]}
     nearest_free_2 = min(free_node_distance_map, key=free_node_distance_map.get)
     mapping = swap_to_target(mapping, nearest_free_2, p_qcomm2, arch, early_stop=0)
+
     # Swap start qubit next to comm 1
     p_qstart = mapping[l_qstart]
     mapping = swap_to_target(mapping, p_qstart, p_qcomm1, arch, early_stop=1)
+
     # Teleport
     p_qstart = mapping[l_qstart]
     mapping = update_mapping_SWAP(mapping, p_qstart, p_qcomm2)
     return mapping
-    
-
-
 
 
 def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
@@ -311,8 +318,7 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
                 free_per_core[arch.qubit_core_map[p]] += 1
 
             if 0 in free_per_core:
-                print("free_per_core", free_per_core, "free_nodes", free_nodes)
-
+                continue
 
             final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
             initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)

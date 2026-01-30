@@ -139,3 +139,104 @@ class Architecture:
     def distance(self, q1, q2, local_w=1, teleport_w=None):
         G = self.build_weighted_graph(local_w=local_w, teleport_w=teleport_w)
         return nx.dijkstra_path_length(G, q1, q2, weight="weight")
+
+@staticmethod
+def STAR_LINE_RING():
+    num_qubits = 15
+    qubit_to_core = [0,0,0,0,0, 1,1,1,1,1, 2,2,2,2,2]
+
+    # core 0: line 0-1-2-3-4
+    edges0 = [Edge(0,1), Edge(1,2), Edge(2,3), Edge(3,4)]
+    # core 1: star centred at 5
+    edges1 = [Edge(5,6), Edge(5,7), Edge(5,8), Edge(5,9)]
+    # core 2: ring
+    edges2 = [Edge(10,11), Edge(11,12), Edge(12,13), Edge(13,14), Edge(14,10)]
+
+    intra_core_edges = edges0 + edges1 + edges2
+
+    # inter core links between communication qubits
+    inter_core_edges = [
+        Edge(2,5), # core0 comm qubit 2 <-> core1 comm qubit 5
+        Edge(3,10) # core0 comm qubit 3 <-> core1 comm qubit 10
+    ]
+
+    arch = Architecture(
+    num_qubits=num_qubits,
+    qubit_to_core=qubit_to_core,
+    intra_core_edges=intra_core_edges,
+    inter_core_edges=inter_core_edges,
+    name="star-line-ring"
+    )
+
+    return arch
+
+def tokyo_edges(offset: int):
+        e = []
+
+        # 4 horizontal lines of length 5
+        for start in (0, 5, 10, 15):
+            for i in range(start, start + 4):
+                e.append(Edge(offset + i, offset + i + 1))
+
+        # vertical edges between rows
+        for i in range(0, 15):
+            e.append(Edge(offset + i, offset + i + 5))
+
+        # diagonals
+        for i in [1, 3, 5, 7, 11, 13]:
+            e.append(Edge(offset + i, offset + i + 6))
+
+        for i in [2, 4, 6, 8, 12, 14]:
+            e.append(Edge(offset + i, offset + i + 4))
+
+        return e
+
+@staticmethod
+def TWO_TOKYO():
+    num_qubits = 40
+    qubit_to_core = [0] * 20 + [1] * 20
+
+    # core 0: tokyo on qubits 0..19
+    # core 1: tokyo on qubits 20..39
+    intra_core_edges = tokyo_edges(0) + tokyo_edges(20)
+
+    # inter-core links
+    inter_core_edges = [
+        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
+    ]
+
+    arch = Architecture(
+        num_qubits=num_qubits,
+        qubit_to_core=qubit_to_core,
+        intra_core_edges=intra_core_edges,
+        inter_core_edges=inter_core_edges,
+        name="two-tokyo"
+    )
+
+    return arch
+
+@staticmethod
+def THREE_TOKYO():
+    num_qubits = 60
+    qubit_to_core = [0] * 20 + [1] * 20 + [2] * 20
+
+    # core 0: tokyo on qubits 0..19
+    # core 1: tokyo on qubits 20..39
+    # core 1: tokyo on qubits 40..59
+    intra_core_edges = tokyo_edges(0) + tokyo_edges(20) + tokyo_edges(40)
+
+    # inter-core links
+    inter_core_edges = [
+        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
+        Edge(24, 40)    # core1 qubit 24 <-> core2 qubit 40,
+    ]
+
+    arch = Architecture(
+        num_qubits=num_qubits,
+        qubit_to_core=qubit_to_core,
+        intra_core_edges=intra_core_edges,
+        inter_core_edges=inter_core_edges,
+        name="three-tokyo"
+    )
+
+    return arch
