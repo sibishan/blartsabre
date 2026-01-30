@@ -16,7 +16,7 @@ qc = qiskit.qasm2.load("./data/example_4q/example_4q.qasm")
 #     qc_entangled.measure(i, i)
 #     qc_entangled.measure(i + num_rows, i + num_rows)
 
-arch = QubitNetworkGraph([(0,1),(1,2),(2,3)], name="4-qubit line")
+arch = QubitNetworkGraph([(0,1),(1,2),(2,3),(3,4)], name="5-qubit line")
 # arch = tokyo_arch()
 
 initial_mapping = sabre(arch, qc, verbose=True)

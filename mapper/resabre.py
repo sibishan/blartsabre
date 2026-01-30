@@ -7,8 +7,13 @@ from copy import deepcopy
 EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
+COMM_SWAP_LAMBDA = 2.0
+RESET_TIMER_START = 5000
+STAGNATION_WINDOW = 400  # how many swaps with no executed gate before we relax comm penalty
 
 NUM_ITERATIONS = 50
+
+class DeadlockError(RuntimeError): pass
 
 def reduce_2_qubit_gates(circuit):
     for i in range(len(circuit.data)-1,-1,-1):
@@ -59,57 +64,108 @@ def update_mapping(mapping, p_q1, p_q2):
     mapping.inv[p_q1] = temp2
     return mapping
 
+
 def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     circuit_dag = deepcopy(circuit_dag)
-    initial_mapping = initial_mapping.copy()
+    mapping = initial_mapping.copy()
 
-    mapping = initial_mapping
     gate_execution_log = []
-    decay_array = [1 for _ in range(len(arch))]
-    decay_timer = [0 for _ in range(len(arch))]
+
+    n_phys = len(arch)
+    decay_array = [1.0 for _ in range(n_phys)]
+    decay_timer = [0 for _ in range(n_phys)]
 
     front_layer = circuit_dag.get_front_layer()
+
+    reset_timer = RESET_TIMER_START
+    no_progress_swaps = 0  # counts swaps since last executed gate
+
     while len(front_layer) != 0:
         executable_gate_nodes = []
         for gate_node in front_layer:
             gate = circuit_dag.get_gate_from_node(gate_node)
             if arch.check_gate_executable(gate, mapping):
                 executable_gate_nodes.append(gate_node)
-        
-        if len(executable_gate_nodes) != 0:
-            # There are gates ready to be executed as-is
+
+        if executable_gate_nodes:
             for gate_node in executable_gate_nodes:
                 gate = circuit_dag.get_gate_from_node(gate_node)
-                gate_execution_log.append((gate.gate_type + " " + str(gate.parameters),(mapping[gate.qubits[0]],mapping[gate.qubits[1]])))
+                p1 = mapping[gate.qubits[0]]
+                p2 = mapping[gate.qubits[1]]
+                gate_execution_log.append((gate.gate_type + " " + str(gate.parameters), (p1, p2)))
+
                 circuit_dag.remove_gate(gate_node)
-                decay_array[mapping[gate.qubits[0]]] = 1
-                decay_array[mapping[gate.qubits[1]]] = 1
+
+                decay_array[p1] = 1.0
+                decay_array[p2] = 1.0
+                decay_timer[p1] = 0
+                decay_timer[p2] = 0
+
+            no_progress_swaps = 0
+            reset_timer = RESET_TIMER_START
+
         else:
-            # A SWAP is required for the next gate
-            score = dict()
+            score = {}
             front_layer_gates = circuit_dag.get_gates_from_nodes(front_layer)
-            SWAP_candidates = get_SWAP_candidates(arch, mapping, front_layer_gates)
-            for SWAP_candidate in SWAP_candidates:
-                temp_mapping = update_mapping(mapping.copy(),*SWAP_candidate)
-                score[SWAP_candidate] = SWAP_heuristic(circuit_dag, temp_mapping, dist_matrix, SWAP_candidate, decay_array)
-            best_SWAP = min(score, key=score.get)
-            update_mapping(mapping,*best_SWAP)
-            gate_execution_log.append(("SWAP", best_SWAP))
-            decay_array[best_SWAP[0]] = 1 + DECAY_VALUE
-            decay_array[best_SWAP[1]] = 1 + DECAY_VALUE
-            for i in range(len(arch)):
-                if decay_array[i]:
-                    decay_timer[i]+=1
-                if decay_timer[i] > 5:
-                    decay_array[i] = 1
-                    decay_timer[i] = 0
+            SWAP_candidates = list(get_SWAP_candidates(arch, mapping, front_layer_gates))
+
+            if not SWAP_candidates:
+                raise DeadlockError("No SWAP candidates available")
+
+            # if we have been swapping too long with no progress, relax comm penalty for one step
+            relax_comm = (no_progress_swaps >= STAGNATION_WINDOW)
+
+            for u, v in SWAP_candidates:
+                temp_mapping = update_mapping(mapping.copy(), u, v)
+
+                h = SWAP_heuristic(
+                    circuit_dag=circuit_dag,
+                    temp_mapping=temp_mapping,
+                    dist_matrix=dist_matrix,
+                    SWAP_candidate=(u, v),
+                    decay_array=decay_array
+                )
+
+                decay_factor = 1.0 + max(decay_array[u], decay_array[v])
+                h *= decay_factor
+
+                # comm penalty
+                if relax_comm:
+                    comm_penalty = 0.0
+                else:
+                    comm_penalty = COMM_SWAP_LAMBDA if arch.is_comm_edge(u, v) else 0.0
+
+                score[(u, v)] = h + comm_penalty
+
+            best_u, best_v = min(score, key=score.get)
+
+            update_mapping(mapping, best_u, best_v)
+            gate_execution_log.append(("SWAP", (best_u, best_v)))
+
+            decay_array[best_u] = 1.0 + DECAY_VALUE
+            decay_array[best_v] = 1.0 + DECAY_VALUE
+            decay_timer[best_u] = 0
+            decay_timer[best_v] = 0
+
+            for i in range(n_phys):
+                if decay_array[i] != 1.0:
+                    decay_timer[i] += 1
+                    if decay_timer[i] > 5:
+                        decay_array[i] = 1.0
+                        decay_timer[i] = 0
+
+            no_progress_swaps += 1
+            reset_timer -= 1
+            if reset_timer <= 0:
+                raise DeadlockError("reset_timer expired, stuck swapping")
 
         front_layer = circuit_dag.get_front_layer()
 
     return mapping, gate_execution_log
 
 
-def sabre(arch, quantum_circuit, verbose = False, return_log = False):
+
+def resabre(arch, quantum_circuit, verbose = False, return_log = False):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -142,20 +198,34 @@ def sabre(arch, quantum_circuit, verbose = False, return_log = False):
 
     gate_execution_log_iterations = dict()
 
+    deadlocks = 0
     for iteration in range(NUM_ITERATIONS):
-        
-        random_mapping = list(range(num_physical_qubits))
-        random.shuffle(random_mapping)
-        initial_mapping = bidict(enumerate(random_mapping))
+        try:
+            random_mapping = list(range(num_physical_qubits))
+            random.shuffle(random_mapping)
+            initial_mapping = bidict(enumerate(random_mapping))
 
-        final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
-        initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
-        _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
+            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
 
-        gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
+            gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
+        except DeadlockError:
+            deadlocks += 1
+            continue
+    
+    if not gate_execution_log_iterations:
+        raise RuntimeError(f"No successful iterations, deadlocks={deadlocks}/{NUM_ITERATIONS}")
 
     best_iteration = min(gate_execution_log_iterations, key=lambda k: len(gate_execution_log_iterations[k][1]))
     best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
+
+    comm_swaps = sum(
+        1 for op, e in best_gate_execution_log
+        if op == "SWAP" and arch.is_comm_edge(*e)
+    )
+    total_swaps = sum(1 for op, _ in best_gate_execution_log if op == "SWAP")
+    print("comm_swaps", comm_swaps, "total_swaps", total_swaps)
 
     if verbose:
         best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]

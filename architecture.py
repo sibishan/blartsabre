@@ -22,25 +22,25 @@ class QubitNetworkGraph(nx.Graph):
         plt.show()
 
 class SingleCoreDQGraph(QubitNetworkGraph):
-    def __init__(self, *args, comm_edges = [], **kwargs):
-        super(SingleCoreDQGraph, self).__init__(*args, **kwargs)
-        
-        # Store communication edges
-        self.comm_edges = comm_edges
-        self.data_edges = [e for e in self.edges() if e not in comm_edges and (e[1], e[0]) not in comm_edges]
-        
-        # Set default weight=1.0 for all edges
+    def __init__(self, *args, comm_edges=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.comm_edges = list(comm_edges or [])
+        self.comm_edge_set = {tuple(sorted(e)) for e in self.comm_edges}
+        self.data_edges = [e for e in self.edges() if tuple(sorted(e)) not in self.comm_edge_set]
+
         for u, v in self.edges():
-            self[u][v]['weight'] = 1.0
-        
-        # Set custom weight for communication edges
-        if comm_edges:
-            for u, v in comm_edges:
-                if self.has_edge(u, v):
-                    self[u][v]['weight'] = COMM_EDGE_WEIGHT
-        
-        # Recompute distance matrix with weights
-        self.distance_matrix = dict(nx.floyd_warshall(self, weight='weight'))
+            self[u][v]["weight"] = 1.0
+
+        for u, v in self.comm_edges:
+            if self.has_edge(u, v):
+                self[u][v]["weight"] = COMM_EDGE_WEIGHT
+
+        self.distance_matrix = dict(nx.floyd_warshall(self, weight="weight"))
+
+    def is_comm_edge(self, u, v):
+        return tuple(sorted((u, v))) in self.comm_edge_set
+
     
     def draw(self):
         """Draw graph with communication edges highlighted"""

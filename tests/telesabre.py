@@ -1,9 +1,5 @@
 from mapper.telesabre import telesabre
-from mapper.sabre import sabre
-from router.sabre import sabre_swap
-from architecture import *
-from qiskit import QuantumCircuit
-from convert import from_qiskit
+from architecture import DistributedQubitNetworkGraph
 from qiskit import qasm2
 
 qc = qasm2.load("./data/example_9q/example_9q.qasm")
@@ -18,14 +14,18 @@ arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),
                                      (5,6),(6,7),(7,8),(8,9),
                                      (10,11),(11,12),(12,13),(13,14),(14,10),
                                      (0,5), (9,10)],
-                                    core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]])
+                                    core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]],
+                                    name="15-qubit-star-line-ring"
+                                    )
 
-# # 18 qubit device
-# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
-#                                      (6,7),(7,8),(8,9),(9,10),(10,11),
-#                                      (11,13),(13,14),(14,15),(15,16),(16,17),(17,12),
-#                                      (0,6), (11,12)],
-#                                     core_node_groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17]])
+# 18 qubit device
+arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
+                                     (6,7),(7,8),(8,9),(9,10),(10,11),
+                                     (11,13),(13,14),(14,15),(15,16),(16,17),(17,12),
+                                     (0,6), (11,12)],
+                                    core_node_groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17]],
+                                    name="18-qubit-star-line-ring"
+                                    )
 
 initial_mapping = telesabre(arch, qc, verbose=True)
 
