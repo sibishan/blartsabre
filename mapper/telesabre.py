@@ -13,7 +13,7 @@ COMM_EDGE_WEIGHT = 1.0
 
 RESET_TIMER_START = 100
 
-NUM_ITERATIONS = 50
+NUM_ITERATIONS = 100
 
 class DeadlockError(RuntimeError): pass
 
@@ -308,14 +308,19 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
         except DeadlockError:
             pass
 
+    if len(gate_execution_log_iterations)==0:
+        raise DeadlockError("No valid runs found")
+    
     best_iteration = min(gate_execution_log_iterations, key=lambda k: len(gate_execution_log_iterations[k][1]))
     best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
 
     if verbose:
         best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]
+        best_teleport_log = [k for k in best_gate_execution_log if (k[0] == "Teleport")]
         print("Best Iteration:")
         print(f"#{len(best_gate_execution_log)} total gates")
         print(f"#{len(best_swap_log)} inserted SWAPS")
+        print(f"#{len(best_teleport_log)} inserted teleports")
         print()
 
         print("Initial Mapping:")

@@ -1,18 +1,21 @@
 from mapper.telesabre import telesabre
 from router.sabre import sabre_swap
 from architecture_old import DistributedQubitNetworkGraph, QubitNetworkGraph, tokyo_arch
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, circuit
 from convert import from_qiskit
 
 # qc = qiskit.qasm2.load("./data/quekno/20Q_depth_Tokyo/20QBT_depth_Tokyo_large_opt_1_1.5_no.0.qasm")
 
-num_rows = 4
-qc = QuantumCircuit(2 * num_rows, 2 * num_rows)
-for i in range(num_rows):
-    qc.h(i)
-    qc.cx(i, i + num_rows)
-    qc.measure(i, i)
-    qc.measure(i + num_rows, i + num_rows)
+# num_rows = 4
+# qc = QuantumCircuit(2 * num_rows, 2 * num_rows)
+# for i in range(num_rows):
+#     qc.h(i)
+#     qc.cx(i, i + num_rows)
+#     qc.measure(i, i)
+#     qc.measure(i + num_rows, i + num_rows)
+
+qc = QuantumCircuit(6)
+qc.append(circuit.library.QFT(6, do_swaps=False).decompose(),range(6))
 
 arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),
