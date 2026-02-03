@@ -27,6 +27,8 @@ arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
                                     name="18-qubit-star-line-ring"
                                     )
 
+arch.draw()
+
 initial_mapping = telesabre(arch, qc, verbose=True)
 
 print(initial_mapping)
