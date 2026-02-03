@@ -2,6 +2,7 @@ from convert import from_qiskit
 from qiskit import QuantumCircuit
 from mapping import Mapping
 from architecture import DistributedQubitNetworkGraph
+from dag import QuantumDAG
 import random
 from copy import deepcopy
 import networkx as nx
@@ -18,11 +19,11 @@ NUM_ITERATIONS = 100
 
 class DeadlockError(RuntimeError): pass
 
-def reduce_2_qubit_gates(circuit):
-    for i in range(len(circuit.data)-1,-1,-1):
-        if circuit.data[i].operation.num_qubits != 2:
-            del circuit.data[i]
-    return circuit
+# def reduce_2_qubit_gates(circuit):
+#     for i in range(len(circuit.data)-1,-1,-1):
+#         if circuit.data[i].operation.num_qubits != 2:
+#             del circuit.data[i]
+#     return circuit
 
 def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mapping, q1, q2):
     node1 = temp_mapping.l_to_p(q1)
@@ -90,43 +91,46 @@ def get_SWAP_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping, fr
     # Current implementation: get all adjacent SWAPs of front layer qubits
     front_nodes = set()
     for gate in front_layer:
-        q1, q2 = gate.qubits
-        if arch.qubit_core_map[mapping.l_to_p(q1)] == arch.qubit_core_map[mapping.l_to_p(q2)]:
-            front_nodes.add(mapping.l_to_p(q1))
-            front_nodes.add(mapping.l_to_p(q2))
-    edges = arch.core_subgraph_union.edges(front_nodes)
+        if len(gate.qubits) == 2:
+            q1, q2 = gate.qubits
+            if arch.qubit_core_map[mapping.l_to_p(q1)] == arch.qubit_core_map[mapping.l_to_p(q2)]:
+                front_nodes.add(mapping.l_to_p(q1))
+                front_nodes.add(mapping.l_to_p(q2))
+    edges = arch.separated_core_graph.edges(front_nodes)
     return edges
 
 def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping, front_layer):
     # Current implementation: get all path routes of inter-core front layer qubits
     teleportations = []
     for gate in front_layer:
-        q1, q2 = gate.qubits
-        if arch.qubit_core_map[mapping.l_to_p(q1)] != arch.qubit_core_map[mapping.l_to_p(q2)]:
-            path = DQC_gate_routing_path(arch, mapping, q1, q2)
-            if path[0] not in arch.comm_qubits:
-                teleportations.append(tuple(path[:3]))
-            else:
-                # for neighbour in arch.core_subgraph_union[path[0]]:
-                    teleportations.append(tuple([path[0]]+path[:2]))
-            if path[-1] not in arch.comm_qubits:
-                teleportations.append(tuple(path[:-4:-1]))
-            else:
-                # for neighbour in arch.core_subgraph_union[path[-1]]:
-                    teleportations.append(tuple([path[-1]]+path[:-3:-1]))
+        if len(gate.qubits) == 2:
+            q1, q2 = gate.qubits
+            if arch.qubit_core_map[mapping.l_to_p(q1)] != arch.qubit_core_map[mapping.l_to_p(q2)]:
+                path = DQC_gate_routing_path(arch, mapping, q1, q2)
+                if path[0] not in arch.comm_qubits:
+                    teleportations.append(tuple(path[:3]))
+                else:
+                    # for neighbour in arch.separated_core_graph[path[0]]:
+                        teleportations.append(tuple([path[0]]+path[:2]))
+                if path[-1] not in arch.comm_qubits:
+                    teleportations.append(tuple(path[:-4:-1]))
+                else:
+                    # for neighbour in arch.separated_core_graph[path[-1]]:
+                        teleportations.append(tuple([path[-1]]+path[:-3:-1]))
     return teleportations
 
-def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag, temp_mapping: Mapping, dist_matrix, SWAP_candidate, decay_array):
+def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag: QuantumDAG, temp_mapping: Mapping, SWAP_candidate, decay_array):
     front_layer_gates = circuit_dag.get_gates_from_nodes(circuit_dag.get_front_layer())
 
     H_basic = 0
     for gate in front_layer_gates:
-        q1, q2 = gate.qubits
-        if arch.qubit_core_map[temp_mapping.l_to_p(q1)] == arch.qubit_core_map[temp_mapping.l_to_p(q2)]:
-            gate_energy = dist_matrix[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
-        else:
-            gate_energy = DQC_gate_routing_energy(arch, temp_mapping, q1, q2)
-        H_basic += gate_energy
+        if len(gate.qubits) == 2:
+            q1, q2 = gate.qubits
+            if arch.qubit_core_map[temp_mapping.l_to_p(q1)] == arch.qubit_core_map[temp_mapping.l_to_p(q2)]:
+                gate_energy = arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
+            else:
+                gate_energy = DQC_gate_routing_energy(arch, temp_mapping, q1, q2)
+            H_basic += gate_energy
 
     decay_factor = 1 + max(decay_array[SWAP_candidate[0]],decay_array[SWAP_candidate[1]])
 
@@ -138,8 +142,9 @@ def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag, temp_mapping
 
     H_extended = 0
     for gate in extended_layer_gates:
-        q1, q2 = gate.qubits
-        H_extended += dist_matrix[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
+        if len(gate.qubits) == 2:
+            q1, q2 = gate.qubits
+            H_extended += arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
         
     H = decay_factor / len(front_layer_gates) * H_basic + EXTENDED_HEURISTIC_WEIGHT / len(extended_layer_gates) * H_extended
     return H
@@ -190,7 +195,7 @@ def update_mapping_teleport(mapping: Mapping, p_qstart, p_qcomm1, p_qcomm2, arch
     p_qstart = mapping.l_to_p(l_qstart)
     mapping.swap_p_qubits(p_qstart, p_qcomm2)
 
-def sabre_forward_pass(arch: DistributedQubitNetworkGraph, dist_matrix, initial_mapping: Mapping, circuit_dag):
+def sabre_forward_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, circuit_dag: QuantumDAG):
     circuit_dag = deepcopy(circuit_dag)
     initial_mapping = initial_mapping.copy()
 
@@ -212,10 +217,10 @@ def sabre_forward_pass(arch: DistributedQubitNetworkGraph, dist_matrix, initial_
             # There are gates ready to be executed as-is
             for gate_node in executable_gate_nodes:
                 gate = circuit_dag.get_gate_from_node(gate_node)
-                gate_execution_log.append((gate.gate_type + " " + str(gate.parameters),(mapping.l_to_p(gate.qubits[0]),mapping.l_to_p(gate.qubits[1]))))
+                gate_execution_log.append((gate.gate_type + " " + str(gate.parameters),[mapping.l_to_p(qubit) for qubit in gate.qubits]))
                 circuit_dag.remove_gate(gate_node)
-                decay_array[mapping.l_to_p(gate.qubits[0])] = 1
-                decay_array[mapping.l_to_p(gate.qubits[1])] = 1
+                for qubit in gate.qubits:
+                    decay_array[mapping.l_to_p(qubit)] = 1
             reset_timer = RESET_TIMER_START
         else:
             # A SWAP is required for the next gate
@@ -226,13 +231,13 @@ def sabre_forward_pass(arch: DistributedQubitNetworkGraph, dist_matrix, initial_
             for SWAP_candidate in SWAP_candidates:
                 temp_mapping = mapping.copy()
                 update_mapping_SWAP(temp_mapping,*SWAP_candidate)
-                score[SWAP_candidate] = mapping_energy(arch, circuit_dag, temp_mapping, dist_matrix, SWAP_candidate, decay_array)
+                score[SWAP_candidate] = mapping_energy(arch, circuit_dag, temp_mapping, SWAP_candidate, decay_array)
 
             teleport_candidates = get_teleport_candidates(arch, mapping, front_layer_gates)
             for teleport_candidate in teleport_candidates:
                 temp_mapping = mapping.copy()
                 update_mapping_teleport(temp_mapping,*teleport_candidate,arch)
-                score[teleport_candidate] = mapping_energy(arch, circuit_dag, temp_mapping, dist_matrix, teleport_candidate, decay_array)
+                score[teleport_candidate] = mapping_energy(arch, circuit_dag, temp_mapping, teleport_candidate, decay_array)
 
             best_action = min(score, key=score.get)
             if len(best_action) == 2:
@@ -261,7 +266,7 @@ def sabre_forward_pass(arch: DistributedQubitNetworkGraph, dist_matrix, initial_
     return mapping, gate_execution_log
 
 
-def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
+def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = False, return_log = False):
     """
     return values:
         mapping: Mapping of logical qubits to physical qubits
@@ -278,10 +283,8 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(arch)
 
-        reduced_quantum_circuit = reduce_2_qubit_gates(quantum_circuit)
-        reverse_quantum_circuit = reduced_quantum_circuit.inverse()
-        circuit_dag = from_qiskit(reduced_quantum_circuit)
-
+        reverse_quantum_circuit = quantum_circuit.inverse()
+        circuit_dag = from_qiskit(quantum_circuit)
         reverse_circuit_dag = from_qiskit(reverse_quantum_circuit)
 
         if num_logical_qubits > num_physical_qubits:
@@ -289,9 +292,6 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
     else:
         raise ValueError("SABRE Layout only accepts Qiskit QuantumCircuit")
     
-
-    dist_matrix = arch.get_distance_matrix()
-
     num_free = num_physical_qubits - num_logical_qubits
     num_cores = len(arch.core_node_groups)
     print("num_free", num_free, "num_cores", num_cores)
@@ -316,9 +316,9 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
             if 0 in free_per_core:
                 continue
 
-            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
-            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
-            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+            final_mapping, _ = sabre_forward_pass(arch, initial_mapping, circuit_dag)
+            initial_mapping, _ = sabre_forward_pass(arch, final_mapping, reverse_circuit_dag)
+            _, gate_execution_log = sabre_forward_pass(arch, initial_mapping, circuit_dag)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(iteration)
@@ -353,7 +353,7 @@ def telesabre(arch, quantum_circuit, verbose = False, return_log = False):
 
         print("Physical Gate Log:")
         for gate_log in best_gate_execution_log:
-            print(f"{gate_log[0]} -> {gate_log[1][0]} {gate_log[1][1]}")
+            print(f"{gate_log[0]} -> {gate_log[1]}")
 
     if return_log:
         return best_initial_mapping, best_gate_execution_log

@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import networkx as nx
 import matplotlib.pyplot as plt
+from mapping import Mapping
 
 COMM_EDGE_WEIGHT = 10
     
@@ -13,9 +14,12 @@ class QubitNetworkGraph(nx.Graph):
     def get_distance_matrix(self):
         return self.distance_matrix
     
-    def check_gate_executable(self, gate, mapping):
+    def check_gate_executable(self, gate, mapping: Mapping):
+        if len(gate.qubits) < 2:
+            return True
+        
         q1, q2 = gate.qubits
-        return self.has_edge(mapping[q1],mapping[q2])
+        return self.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
     
     def draw(self):
         nx.draw(self)
@@ -76,20 +80,23 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         
         self.num_cores = (max(self.qubit_core_map) + 1) if self.number_of_nodes() > 0 else 0
 
-        self.core_subgraph_union = nx.Graph()
+        self.separated_core_graph = nx.Graph()
         for core_node_group in core_node_groups:
             core_subgraph = self.subgraph(core_node_group)
             self.core_subgraphs.append(core_subgraph)
-            self.core_subgraph_union = nx.union(self.core_subgraph_union,core_subgraph)
-        self.data_edges = self.core_subgraph_union.edges()
+            self.separated_core_graph = nx.union(self.separated_core_graph,core_subgraph)
+        self.data_edges = self.separated_core_graph.edges()
         self.comm_edges = self.edges() - self.data_edges
         comm_subgraph = nx.Graph(self.comm_edges)
         self.comm_qubits = comm_subgraph.nodes()
         self.non_comm_qubits = self.nodes() - self.comm_qubits
         
     def check_gate_executable(self, gate, mapping):
+        if len(gate.qubits) < 2:
+            return True
+        
         q1, q2 = gate.qubits
-        return self.core_subgraph_union.has_edge(mapping[q1],mapping[q2])
+        return self.separated_core_graph.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
 
     def draw(self):
         pos = nx.spring_layout(self)
