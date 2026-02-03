@@ -101,7 +101,8 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         plt.show()
 
-def tokyo_arch():
+@staticmethod
+def tokyo():
     edges = []
 
     # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
@@ -122,6 +123,43 @@ def tokyo_arch():
         edges.append((i, i + 4))
 
     return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
+
+@staticmethod
+def rochester():
+    edges = []
+
+    # Build the same "I_1" index set:
+    # 0..3, 7..14, 19..26, 30..37, 42..49
+    I_1 = (
+        list(range(0, 4)) +
+        list(range(7, 15)) +
+        list(range(19, 27)) +
+        list(range(30, 38)) +
+        list(range(42, 50))
+    )
+
+    # Consecutive links (i, i+1) for i in I_1
+    for i in I_1:
+        edges.append((i, i + 1))
+
+    # Extra couplers (same as E)
+    edges.extend([
+        (0, 5), (5, 9),
+        (4, 6), (6, 13),
+        (7, 16), (16, 19),
+        (11, 17), (17, 23),
+        (15, 18), (18, 27),
+        (21, 28), (28, 32),
+        (25, 29), (29, 36),
+        (30, 39), (39, 42),
+        (34, 40), (40, 46),
+        (38, 41), (41, 50),
+        (44, 51),
+        (48, 52),
+    ])
+
+    return QubitNetworkGraph(edges, name="IBM Q Rochester (53 qubits)")
+
 
 
 if __name__ == '__main__':
