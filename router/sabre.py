@@ -1,3 +1,4 @@
+import math
 from copy import deepcopy
 from mapping import Mapping
 from qiskit import QuantumCircuit
@@ -48,6 +49,25 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         if len(gate.qubits) != 1 or len(gate.clbits) != 1:
             raise ValueError(f"MEASURE expects 1 qubit and 1 clbit, got {gate.qubits}, {gate.clbits}")
         out_qc.measure(phys[0], gate.clbits[0])
+    elif gt in ("U1", "P", "PHASE"):
+        lam = p.get("param_0")
+        if lam is None:
+            raise ValueError(f"U1 missing param_0, gate.parameters={gate.parameters}")
+        out_qc.p(lam, phys[0])
+    elif gt == "U2":
+        phi = p.get("param_0")
+        lam = p.get("param_1")
+        if phi is None or lam is None:
+            raise ValueError(f"U2 missing params, gate.parameters={gate.parameters}")
+        out_qc.u(math.pi / 2, phi, lam, phys[0])
+    elif gt in ("U3", "U"):
+        theta = p.get("param_0")
+        phi   = p.get("param_1")
+        lam   = p.get("param_2")
+        if theta is None or phi is None or lam is None:
+            raise ValueError(f"{gt} missing params, gate.parameters={gate.parameters}")
+        out_qc.u(theta, phi, lam, phys[0])
+
 
     # 2q gates
     elif gt == "CX":

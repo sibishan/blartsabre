@@ -39,7 +39,7 @@ from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 # CIRCUITS = load_qasm("data/qasmbench", recursive=True)
 
-qc = qasm2.load("./data/qasmbench/medium/bv_n19/bv_n19.qasm")
+qc = qasm2.load("./data/qasmbench/large/qft_n29/qft_n29.qasm")
 
 config = {"layout_seed": 1,
             "max_iterations": 3,
