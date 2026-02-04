@@ -49,11 +49,18 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
 
     full_cores = [len(core_free_nodes_map) < 2 for core_free_nodes_map in core_free_nodes_map]
 
+    # Remove for telegate
+    if len(core_free_nodes_map[arch.qubit_core_map[node1]]) == 0:
+        raise DeadlockError(f"Starting core {arch.qubit_core_map[node1]} has 0 free nodes, free_nodes={free_nodes}")
+    if len(core_free_nodes_map[arch.qubit_core_map[node2]]) == 0:
+        raise DeadlockError(f"Target core {arch.qubit_core_map[node2]} has 0 free nodes, free_nodes={free_nodes}")
+
     for comm_node in arch.comm_qubits:
         core = arch.qubit_core_map[comm_node]
 
         if len(core_free_nodes_map[core]) == 0:
-            raise DeadlockError(f"core {core} has 0 free nodes, free_nodes={free_nodes}")
+            contracted_graph.remove_node(comm_node)
+            continue
 
         free_node_distances = []
         for free_node in core_free_nodes_map[core]:
@@ -62,20 +69,15 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
         free_node_score = min(free_node_distances)/2
         core_score = FULL_CORE_PENALTY if full_cores[core] else 0
         for u,v in contracted_graph.edges(comm_node):
-            contracted_graph.edges[u, v]['weight'] = contracted_graph.edges[u, v]['weight'] + free_node_score + core_score
-
-    # pos = nx.spring_layout(contracted_graph)
-    # nx.draw_networkx_nodes(contracted_graph, pos)
-    # nx.draw_networkx_edges(contracted_graph, pos)
-    # nx.draw_networkx_labels(contracted_graph, pos)
-    # nx.draw_networkx_edge_labels(contracted_graph, pos)
+            contracted_graph.edges[u, v]['weight'] = contracted_graph.edges[u, v]['weight'] + free_node_score/2 + core_score/2
 
     return contracted_graph
 
 def DQC_gate_routing_energy(arch: DistributedQubitNetworkGraph, temp_mapping: Mapping, q1, q2):
 
     contracted_graph = DQC_contracted_graph(arch, temp_mapping, q1, q2)
-    # shortest_path = nx.shortest_path(contracted_graph, source=temp_mapping[q1], target=temp_mapping[q2], weight="weight")
+    if not nx.has_path(contracted_graph, source=temp_mapping.l_to_p(q1), target=temp_mapping.l_to_p(q2)):
+        raise DeadlockError(f"Impossible to route from core {arch.qubit_core_map[temp_mapping.l_to_p(q1)]} to core {arch.qubit_core_map[temp_mapping.l_to_p(q2)]}")
     shortest_path_length = nx.shortest_path_length(contracted_graph, source=temp_mapping.l_to_p(q1), target=temp_mapping.l_to_p(q2), weight="weight")
 
     return shortest_path_length
@@ -83,6 +85,8 @@ def DQC_gate_routing_energy(arch: DistributedQubitNetworkGraph, temp_mapping: Ma
 def DQC_gate_routing_path(arch: DistributedQubitNetworkGraph, temp_mapping: Mapping, q1, q2):
 
     contracted_graph = DQC_contracted_graph(arch, temp_mapping, q1, q2)
+    if not nx.has_path(contracted_graph, source=temp_mapping.l_to_p(q1), target=temp_mapping.l_to_p(q2)):
+        raise DeadlockError(f"Impossible to route from core {arch.qubit_core_map[temp_mapping.l_to_p(q1)]} to core {arch.qubit_core_map[temp_mapping.l_to_p(q2)]}")
     shortest_path = nx.shortest_path(contracted_graph, source=temp_mapping.l_to_p(q1), target=temp_mapping.l_to_p(q2), weight="weight")
 
     return shortest_path
@@ -152,14 +156,17 @@ def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag: QuantumDAG, 
 def update_mapping_SWAP(mapping: Mapping, p_q1, p_q2):
     mapping.swap_p_qubits(p_q1,p_q2)
 
-def swap_to_target(mapping: Mapping, start, target, arch: DistributedQubitNetworkGraph, early_stop=0):
+def swap_sequence_to_target(mapping: Mapping, start, target, arch: DistributedQubitNetworkGraph, early_stop=0):
     path = nx.shortest_path(arch,start,target)
+    swap_sequence = []
     for i in range(len(path)-1-early_stop):
         mapping.swap_p_qubits(path[i], path[i+1])
-    return mapping
+        swap_sequence.append([path[i],path[i+1]])
+    return mapping, swap_sequence
 
 def update_mapping_teleport(mapping: Mapping, p_qstart, p_qcomm1, p_qcomm2, arch: DistributedQubitNetworkGraph):
     l_qstart = mapping.p_to_l(p_qstart)
+    teleport_swap_sequence = []
 
     # Swap nearest free qubit to comm 1
     free_nodes = mapping.get_free_p_nodes()
@@ -172,7 +179,8 @@ def update_mapping_teleport(mapping: Mapping, p_qstart, p_qcomm1, p_qcomm2, arch
     free_node_distance_map = {free_node: arch.get_distance_matrix()[p_qcomm1][free_node]
                               for free_node in core_free_nodes_map[core_1]}
     nearest_free_1 = min(free_node_distance_map, key=free_node_distance_map.get)
-    mapping = swap_to_target(mapping, nearest_free_1, p_qcomm1, arch, early_stop=0)
+    mapping, swap_sequence = swap_sequence_to_target(mapping, nearest_free_1, p_qcomm1, arch, early_stop=0)
+    teleport_swap_sequence.extend(swap_sequence)
 
     # Swap nearest free qubit to comm 2
     free_nodes = mapping.get_free_p_nodes()
@@ -185,15 +193,20 @@ def update_mapping_teleport(mapping: Mapping, p_qstart, p_qcomm1, p_qcomm2, arch
     free_node_distance_map = {free_node: arch.get_distance_matrix()[p_qcomm2][free_node]
                               for free_node in core_free_nodes_map[core_2]}
     nearest_free_2 = min(free_node_distance_map, key=free_node_distance_map.get)
-    mapping = swap_to_target(mapping, nearest_free_2, p_qcomm2, arch, early_stop=0)
+    mapping, swap_sequence = swap_sequence_to_target(mapping, nearest_free_2, p_qcomm2, arch, early_stop=0)
+    teleport_swap_sequence.extend(swap_sequence)
 
     # Swap start qubit next to comm 1
     p_qstart = mapping.l_to_p(l_qstart)
-    mapping = swap_to_target(mapping, p_qstart, p_qcomm1, arch, early_stop=1)
+    mapping, swap_sequence = swap_sequence_to_target(mapping, p_qstart, p_qcomm1, arch, early_stop=1)
+    teleport_swap_sequence.extend(swap_sequence)
 
     # Teleport
     p_qstart = mapping.l_to_p(l_qstart)
     mapping.swap_p_qubits(p_qstart, p_qcomm2)
+    teleport_qubit_swap = [p_qstart, p_qcomm2]
+
+    return teleport_swap_sequence, teleport_qubit_swap
 
 def sabre_forward_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, circuit_dag: QuantumDAG):
     circuit_dag = deepcopy(circuit_dag)
@@ -246,8 +259,10 @@ def sabre_forward_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapp
                 gate_execution_log.append(("SWAP", best_action))
             else:
                 # Teleport
-                update_mapping_teleport(mapping,*best_action,arch)
-                gate_execution_log.append(("Teleport", best_action))
+                swap_sequence, teleport_swap = update_mapping_teleport(mapping,*best_action,arch)
+                for swap in swap_sequence:
+                    gate_execution_log.append(("SWAP [tele]", swap))
+                gate_execution_log.append(("Teleport", teleport_swap))
        
             decay_array[best_action[0]] = 1 + DECAY_VALUE
             decay_array[best_action[1]] = 1 + DECAY_VALUE
@@ -338,7 +353,7 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
     best_initial_mapping, best_gate_execution_log = gate_execution_log_iterations[best_iteration]
 
     if verbose:
-        best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]
+        best_swap_log = [k for k in best_gate_execution_log if ("SWAP" in k[0])]
         best_teleport_log = [k for k in best_gate_execution_log if (k[0] == "Teleport")]
         print("Best Iteration:")
         print(f"#{len(best_gate_execution_log)} total gates")
