@@ -132,40 +132,28 @@ def tokyo():
     return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
 
 @staticmethod
-def rochester():
-    edges = []
+def sycamore():
+    edges = set()
 
-    # Build the same "I_1" index set:
-    # 0..3, 7..14, 19..26, 30..37, 42..49
-    I_1 = (
-        list(range(0, 4)) +
-        list(range(7, 15)) +
-        list(range(19, 27)) +
-        list(range(30, 38)) +
-        list(range(42, 50))
+    nodes = list(range(54))
+    I = (
+        list(range(6, 12)) +
+        list(range(18, 24)) +
+        list(range(30, 36)) +
+        list(range(42, 48))
     )
+    Iset = set(I)
 
-    # Consecutive links (i, i+1) for i in I_1
-    for i in I_1:
-        edges.append((i, i + 1))
+    for i in I:
+        for j in nodes:
+            if j in Iset:
+                continue
+            if (i - j) in (5, 6) or (j - i) in (6, 7):
+                a, b = (i, j) if i < j else (j, i)
+                edges.add((a, b))
 
-    # Extra couplers (same as E)
-    edges.extend([
-        (0, 5), (5, 9),
-        (4, 6), (6, 13),
-        (7, 16), (16, 19),
-        (11, 17), (17, 23),
-        (15, 18), (18, 27),
-        (21, 28), (28, 32),
-        (25, 29), (29, 36),
-        (30, 39), (39, 42),
-        (34, 40), (40, 46),
-        (38, 41), (41, 50),
-        (44, 51),
-        (48, 52),
-    ])
+    return QubitNetworkGraph(sorted(edges), name="Google Sycamore (54 qubits)")
 
-    return QubitNetworkGraph(edges, name="IBM Q Rochester (53 qubits)")
 
 
 

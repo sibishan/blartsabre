@@ -18,7 +18,7 @@ from .sabre_swap import SabreSwap
 from qiskit.transpiler.passes import SabreLayout as LightSabreLayout
 from qiskit.transpiler.passes.routing import SabreSwap as LightSabreSwap
 
-from architecture import tokyo, rochester
+from architecture import tokyo, sycamore
 from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 
@@ -37,13 +37,13 @@ def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(50,), b
 BASE_SEED = 1
 CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(50,), base_seed=BASE_SEED)
 
-CIRCUITS = load_qasm("data/qasmbench", recursive=True)
+CIRCUITS = load_qasm("./data/queko", recursive=True)
 
 def build_arch(num_qubits):
-    if num_qubits > 53:
-        raise ValueError("no arch available for more than 53 qubits")
+    if num_qubits > 54:
+        raise ValueError("no arch available for more than 54 qubits")
     if num_qubits > 20:
-        arch = rochester()
+        arch = sycamore()
     else:
         arch = tokyo()
 
