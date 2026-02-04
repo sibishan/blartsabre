@@ -1,4 +1,5 @@
 from copy import deepcopy
+from mapping import Mapping
 from qiskit import QuantumCircuit
 from convert import from_qiskit
 
@@ -41,6 +42,8 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.ry(p.get("param_0"), phys[0])
     elif gt == "RZ":
         out_qc.rz(p.get("param_0"), phys[0])
+    elif gt == "BARRIER":
+        out_qc.barrier(*phys)
     elif gt == "MEASURE":
         if len(gate.qubits) != 1 or len(gate.clbits) != 1:
             raise ValueError(f"MEASURE expects 1 qubit and 1 clbit, got {gate.qubits}, {gate.clbits}")
@@ -140,7 +143,7 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
     else:
         raise ValueError("SABRE Router only accepts Qiskit QuantumCircuit")
     
-    mapping = initial_mapping.copy()
+    mapping = Mapping(initial_mapping.copy())
     num_physical_qubits = len(arch)
     dist_matrix = arch.get_distance_matrix()
 
@@ -185,11 +188,11 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
             
             scores = {}
             for (p1, p2) in swap_cands:
-                tmp = mapping.copy()
+                tmp = Mapping(mapping.copy())
                 safe_swap_mapping(tmp, p1, p2)
                 scores[(p1, p2)] = SWAP_heuristic(dag, tmp, dist_matrix, (p1, p2), decay_array)
             
-            best = min(scores, key=scores.get)
+            best = min(scores.items(), key=lambda kv: (kv[1], kv[0]))[0]
             p1, p2 = best
 
             routed_qc.swap(p1, p2)

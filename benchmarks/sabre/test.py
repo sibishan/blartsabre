@@ -11,6 +11,8 @@ from qiskit.transpiler.passes.layout import (
     ApplyLayout
 )
 
+from mapper.sabre import sabre_layout  # our sabre_layout implementation
+from router.sabre import sabre_swap # our sabre_swap implementation
 from .sabre_layout import SabreLayout  # qiskit sabre_layout implementation
 from .sabre_swap import SabreSwap   # qiskit sabre_swap implementation
 from qiskit.transpiler.passes import SabreLayout as LightSabreLayout # qiskit lightsabre_layout implementation
@@ -38,69 +40,49 @@ from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 # CIRCUITS = load_qasm("data/qasmbench", recursive=True)
 
 qc = qasm2.load("./data/qasmbench/medium/bv_n19/bv_n19.qasm")
+
 config = {"layout_seed": 1,
             "max_iterations": 3,
             "swap_heuristic": "basic",
             "swap_seed": 1}
 
-def sabre_pass(qc, coupling_map, config):
-    layout_seed = config['layout_seed']
-    max_iterations = config['max_iterations']
-    swap_heuristic = config['swap_heuristic']
-    swap_seed = config['swap_seed']
+def our_sabre_pass(qc, arch, config):
+    layout_seed = config["layout_seed"]
 
-    routing_pass_for_layout = SabreSwap(coupling_map, heuristic=swap_heuristic, seed=swap_seed)
-
-    pm_init_layout = PassManager([
-        SabreLayout(
-            coupling_map, 
-            routing_pass=routing_pass_for_layout, 
-            seed=layout_seed, 
-            max_iterations=max_iterations)
-        ])
-    
     map_start = time.perf_counter()
-    _ = pm_init_layout.run(qc)
+    init_mapping = sabre_layout(arch, qc, seed=layout_seed)
     map_end = time.perf_counter()
     mapping_time = map_end - map_start
-    chosen_layout = pm_init_layout.property_set["layout"]
 
-    pm_route = PassManager([
-        SetLayout(chosen_layout),
-        FullAncillaAllocation(coupling_map),
-        EnlargeWithAncilla(),
-        ApplyLayout(),
-        SabreSwap(coupling_map, heuristic=swap_heuristic, seed=swap_seed)
-    ])
     route_start = time.perf_counter()
-    routed = pm_route.run(qc)
+    routed_qc, _, _ = sabre_swap(arch, qc, init_mapping)
     route_end = time.perf_counter()
     routing_time = route_end - route_start
 
-    routed_ops = routed.count_ops()
+    routed_ops = routed_qc.count_ops()
     routed_cx = routed_ops.get("cx", 0)
     routed_swaps = routed_ops.get("swap", 0)
 
     return {
         "config": {
             "layout_seed": layout_seed,
-            "max_iterations": max_iterations,
-            "swap_heuristic": swap_heuristic,
-            "swap_seed": swap_seed,
+            "max_iterations": 50,
+            "swap_heuristic": {"EXTENDED_LAYER_SIZE": 10,
+                               "EXTENDED_HEURISTIC_WEIGHT": 0.5,
+                               "DECAY_VALUE": 0.001},
+            "swap_seed": None,
         },
         "routed_swaps": routed_swaps,
         "routed_cx": routed_cx,
-        "routed_depth": routed.depth(),
-        "routed_size": routed.size(),
+        "routed_depth": routed_qc.depth(),
+        "routed_size": routed_qc.size(),
         "mapping_time": mapping_time,
         "routing_time":  routing_time,
     }
 
 arch = rochester()
-cm = CouplingMap(couplinglist=arch.edges())
-cm.make_symmetric()
 
 init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(qc)
-stats = sabre_pass(init_cir, cm, config)
+stats = our_sabre_pass(init_cir, arch, config)
 
 print(stats)

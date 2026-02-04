@@ -1,6 +1,6 @@
 from convert import from_qiskit
 from qiskit import QuantumCircuit
-from bidict import bidict
+from mapping import Mapping
 import random
 from copy import deepcopy
 
@@ -52,11 +52,7 @@ def SWAP_heuristic(circuit_dag, temp_mapping, dist_matrix, SWAP_candidate, decay
     return H
 
 def update_mapping(mapping, p_q1, p_q2):
-    temp1 = mapping.inv[p_q1]
-    temp2 = mapping.inv[p_q2]
-    mapping.inv[p_q1] = None
-    mapping.inv[p_q2] = temp1
-    mapping.inv[p_q1] = temp2
+    mapping.swap_p_qubits(p_q1, p_q2)
     return mapping
 
 def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
@@ -109,7 +105,7 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-def sabre(arch, quantum_circuit, verbose = False, return_log = False):
+def sabre_layout(arch, quantum_circuit, verbose = False, return_log = False, seed=None):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -118,6 +114,9 @@ def sabre(arch, quantum_circuit, verbose = False, return_log = False):
     num_logical_qubits = 0
     circuit_dag = None
     reverse_circuit_dag = None
+
+    if seed is not None:
+        random.seed(int(seed))
 
     if isinstance(quantum_circuit, QuantumCircuit):
         quantum_circuit = quantum_circuit.decompose()
@@ -146,7 +145,7 @@ def sabre(arch, quantum_circuit, verbose = False, return_log = False):
         
         random_mapping = list(range(num_physical_qubits))
         random.shuffle(random_mapping)
-        initial_mapping = bidict(enumerate(random_mapping))
+        initial_mapping = Mapping(enumerate(random_mapping))
 
         final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
         initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)

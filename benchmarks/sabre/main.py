@@ -10,6 +10,8 @@ from qiskit.transpiler.passes.layout import (
     ApplyLayout
 )
 
+from mapper.sabre import sabre_layout  # our sabre_layout implementation
+from router.sabre import sabre_swap # our sabre_swap implementation
 from .sabre_layout import SabreLayout  # qiskit sabre_layout implementation
 from .sabre_swap import SabreSwap   # qiskit sabre_swap implementation
 from qiskit.transpiler.passes import SabreLayout as LightSabreLayout # qiskit lightsabre_layout implementation
@@ -36,7 +38,7 @@ CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(3
 
 CIRCUITS = load_qasm("data/qasmbench", recursive=True)
 
-def run_sabre_pass(
+def run_qiskit_sabre_pass(
     qc,
     coupling_map,
     config,
@@ -113,7 +115,7 @@ def run_sabre_pass(
     }
 
 def sabre_pass(qc, coupling_map, config):
-    return run_sabre_pass(
+    return run_qiskit_sabre_pass(
         qc,
         coupling_map,
         config,
@@ -122,7 +124,7 @@ def sabre_pass(qc, coupling_map, config):
     )
 
 def lightsabre_pass(qc, coupling_map, config):
-    return run_sabre_pass(
+    return run_qiskit_sabre_pass(
         qc,
         coupling_map,
         config,
@@ -130,9 +132,43 @@ def lightsabre_pass(qc, coupling_map, config):
         SwapPassCls=LightSabreSwap,
     )
 
+def run_our_sabre_pass(qc, arch, config):
+    layout_seed = config["layout_seed"]
 
-all_rows_sabre = []
+    map_start = time.perf_counter()
+    init_mapping = sabre_layout(arch, qc, seed=layout_seed)
+    map_end = time.perf_counter()
+    mapping_time = map_end - map_start
+
+    route_start = time.perf_counter()
+    routed_qc, _, _ = sabre_swap(arch, qc, init_mapping)
+    route_end = time.perf_counter()
+    routing_time = route_end - route_start
+
+    routed_ops = routed_qc.count_ops()
+    routed_cx = routed_ops.get("cx", 0)
+    routed_swaps = routed_ops.get("swap", 0)
+
+    return {
+        "config": {
+            "layout_seed": layout_seed,
+            "max_iterations": 50,
+            "swap_heuristic": {"EXTENDED_LAYER_SIZE": 10,
+                               "EXTENDED_HEURISTIC_WEIGHT": 0.5,
+                               "DECAY_VALUE": 0.001},
+            "swap_seed": None,
+        },
+        "routed_swaps": routed_swaps,
+        "routed_cx": routed_cx,
+        "routed_depth": routed_qc.depth(),
+        "routed_size": routed_qc.size(),
+        "mapping_time": mapping_time,
+        "routing_time":  routing_time,
+    }
+
+all_rows_og_sabre = []
 all_rows_lightsabre = []
+all_rows_our_sabre = []
 
 pairs = list(product(CIRCUITS.items(), CONFIGS.items()))
 it = tqdm(pairs, desc="Benchmarking", unit="run") if tqdm else pairs
@@ -154,7 +190,7 @@ for idx, ((cir_name, cir), (config_name, config)) in enumerate(it, start=1):
     # OG SABRE
     try:
         stats_sabre = sabre_pass(init_cir, cm, config)
-        stats_sabre["impl"] = "sabre"
+        stats_sabre["impl"] = "og_sabre"
         stats_sabre["init_time"] = init_time
         stats_sabre["og_cx"] = og_cx
         stats_sabre["og_swaps"] = og_swaps
@@ -168,10 +204,10 @@ for idx, ((cir_name, cir), (config_name, config)) in enumerate(it, start=1):
         stats_sabre["config_name"] = config_name
         stats_sabre["arch_name"] = arch.name
 
-        all_rows_sabre.append(stats_sabre)
+        all_rows_og_sabre.append(stats_sabre)
     except Exception as e:
         # keep going, but record the failure
-        all_rows_sabre.append({
+        all_rows_og_sabre.append({
             "impl": "sabre",
             "name": cir_name,
             "config_name": config_name,
@@ -217,11 +253,45 @@ for idx, ((cir_name, cir), (config_name, config)) in enumerate(it, start=1):
             "og_size": og_size,
             "error": repr(e),
         })
+    
+    # OUR SABRE
+    try:
+        stats_light = run_our_sabre_pass(init_cir, arch, config)
+        stats_light["impl"] = "our_sabre"
+        stats_light["init_time"] = init_time
+        stats_light["og_cx"] = og_cx
+        stats_light["og_swaps"] = og_swaps
+        stats_light["og_depth"] = og_depth
+        stats_light["num_qubits"] = num_qubits
+        stats_light["og_size"] = og_size
+        stats_light["total_time"] = (
+            stats_light["init_time"] + stats_light["mapping_time"] + stats_light["routing_time"]
+        )
+        stats_light["name"] = cir_name
+        stats_light["config_name"] = config_name
+        stats_light["arch_name"] = arch.name
+
+        all_rows_our_sabre.append(stats_light)
+    except Exception as e:
+        all_rows_our_sabre.append({
+            "impl": "light_sabre",
+            "name": cir_name,
+            "config_name": config_name,
+            "arch_name": arch.name,
+            "num_qubits": num_qubits,
+            "init_time": init_time,
+            "og_cx": og_cx,
+            "og_swaps": og_swaps,
+            "og_depth": og_depth,
+            "og_size": og_size,
+            "error": repr(e),
+        })
 
 # Save outputs
-out_sabre = save_stats_json(all_rows_sabre, "./benchmarks/og_sabre/sabre.json", indent=4)
-out_light = save_stats_json(all_rows_lightsabre, "./benchmarks/og_sabre/light_sabre.json", indent=4)
+out_og_sabre = save_stats_json(all_rows_og_sabre, "./benchmarks/sabre/results/og_sabre.json", indent=4)
+out_light_sabre = save_stats_json(all_rows_lightsabre, "./benchmarks/sabre/results/light_sabre.json", indent=4)
+out_our_sabre = save_stats_json(all_rows_our_sabre, "./benchmarks/sabre/results/our_sabre.json", indent=4)
 
-print(f"Saved {len(all_rows_sabre)} rows to {out_sabre}")
-print(f"Saved {len(all_rows_lightsabre)} rows to {out_light}")
-
+print(f"Saved {len(all_rows_og_sabre)} rows to {out_og_sabre}")
+print(f"Saved {len(all_rows_lightsabre)} rows to {out_light_sabre}")
+print(f"Saved {len(all_rows_our_sabre)} rows to {out_our_sabre}")
