@@ -18,7 +18,7 @@ from copy import copy, deepcopy
 import numpy as np
 
 from qiskit.circuit.library.standard_gates import SwapGate
-# from qiskit.circuit.quantumregister import Qubit
+from .quantumregister import Qubit
 from qiskit.transpiler.basepasses import TransformationPass
 from qiskit.transpiler.exceptions import TranspilerError
 from qiskit.transpiler.layout import Layout
@@ -399,7 +399,7 @@ def _transform_gate_for_layout(op_node, layout, device_qreg):
     mapped_op_node = copy(op_node)
 
     premap_qargs = op_node.qargs
-    mapped_qargs = map(lambda x: device_qreg[layout._v2p[x]], premap_qargs)
-    mapped_op_node.qargs = list(mapped_qargs)
+    mapped_qargs = tuple(device_qreg[layout._v2p[q]] for q in premap_qargs)
 
+    mapped_op_node.qargs = mapped_qargs
     return mapped_op_node
