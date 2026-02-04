@@ -107,6 +107,52 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         nx.draw_networkx_labels(self, pos)
 
         plt.show()
+    
+    def get_nearest_free_qubit(self, mapping: Mapping, node):
+        free_nodes = mapping.get_free_p_nodes()
+        core = self.qubit_core_map[node]
+        core_free_nodes = [free_node for free_node in free_nodes if self.qubit_core_map[free_node] == core]
+
+        if len(core_free_nodes) == 0:
+            return None
+
+        free_node_distance_map = {free_node: self.get_distance_matrix()[core][free_node]
+                                for free_node in core_free_nodes}
+        nearest_free = min(free_node_distance_map, key=free_node_distance_map.get)
+        return nearest_free
+
+    def get_nearest_free_qubit_map(self, mapping: Mapping):
+        free_nodes = mapping.get_free_p_nodes()
+        core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
+
+        free_qubit_map = dict()
+
+        for comm_node in self.comm_qubits:
+            core = self.qubit_core_map[comm_node]
+            core_free_nodes = core_free_nodes_map[core]
+
+            if len(core_free_nodes) == 0:
+                continue
+
+            free_node_distance_map = {free_node: self.get_distance_matrix()[core][free_node]
+                                    for free_node in core_free_nodes}
+            nearest_free = min(free_node_distance_map, key=free_node_distance_map.get)
+            free_qubit_map[comm_node] = nearest_free
+        
+        return free_qubit_map
+
+    def get_full_cores(self, mapping: Mapping):
+        free_nodes = mapping.get_free_p_nodes()
+        core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
+
+        return [len(core_free_nodes_map) < 2 for core_free_nodes_map in core_free_nodes_map]
+
+    def get_core_capacity(self, mapping: Mapping):
+        free_nodes = mapping.get_free_p_nodes()
+        core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
+
+        return [len(core_free_nodes_map) for core_free_nodes_map in core_free_nodes_map]
+
 
 @staticmethod
 def tokyo():
