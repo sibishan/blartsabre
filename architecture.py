@@ -10,6 +10,8 @@ class QubitNetworkGraph(nx.Graph):
         super(QubitNetworkGraph, self).__init__(*args, **kwargs)
         nx.set_edge_attributes(self, 'data', 'type')
         self.distance_matrix = nx.floyd_warshall(self)
+        self.pos = nx.spring_layout(self)
+
 
     def get_distance_matrix(self):
         return self.distance_matrix
@@ -22,7 +24,7 @@ class QubitNetworkGraph(nx.Graph):
         return self.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
     
     def draw(self):
-        nx.draw(self)
+        nx.draw(self, pos = self.pos)
         plt.show()
 
 class SingleCoreDQGraph(QubitNetworkGraph):
@@ -48,7 +50,6 @@ class SingleCoreDQGraph(QubitNetworkGraph):
     
     def draw(self):
         """Draw graph with communication edges highlighted"""
-        pos = nx.spring_layout(self)
         
         # Identify communication qubits
         comm_subgraph = nx.Graph(self.comm_edges)
@@ -56,17 +57,17 @@ class SingleCoreDQGraph(QubitNetworkGraph):
         non_comm_qubits = [n for n in self.nodes() if n not in comm_qubits]
         
         # Draw nodes
-        nx.draw_networkx_nodes(self, pos, nodelist=comm_qubits, node_shape="h", 
+        nx.draw_networkx_nodes(self, self.pos, nodelist=comm_qubits, node_shape="h", 
                               linewidths=1, edgecolors="black", node_color="white")
-        nx.draw_networkx_nodes(self, pos, nodelist=non_comm_qubits, node_shape="o", 
+        nx.draw_networkx_nodes(self, self.pos, nodelist=non_comm_qubits, node_shape="o", 
                               linewidths=1, edgecolors="black", node_color="white")
         
         # Draw edges
-        nx.draw_networkx_edges(self, pos, edgelist=self.comm_edges, edge_color="red")
-        nx.draw_networkx_edges(self, pos, edgelist=self.data_edges, edge_color="black")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.comm_edges, edge_color="red")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.data_edges, edge_color="black")
         
         # Draw labels
-        nx.draw_networkx_labels(self, pos)
+        nx.draw_networkx_labels(self, self.pos)
         plt.show()
         
 class DistributedQubitNetworkGraph(QubitNetworkGraph):
@@ -79,6 +80,8 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         self.qubit_core_map = [i for i, sublist in enumerate(core_node_groups) for _ in sublist]
         
         self.num_cores = (max(self.qubit_core_map) + 1) if self.number_of_nodes() > 0 else 0
+
+        self.active_telegate_nodes = ()
 
         self.separated_core_graph = nx.Graph()
         for core_node_group in core_node_groups:
@@ -96,15 +99,42 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
             return True
         
         q1, q2 = gate.qubits
+
+        if mapping.l_to_p(q1) in self.active_telegate_nodes and mapping.l_to_p(q2) in self.active_telegate_nodes:
+            self.clear_active_telegate_qubits()
+            return True
+        
         return self.separated_core_graph.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
 
     def draw(self):
-        pos = nx.spring_layout(self)
-        nx.draw_networkx_nodes(self, pos, nodelist=self.comm_qubits, node_shape="h", linewidths=1, edgecolors="black",node_color="white")
-        nx.draw_networkx_nodes(self, pos, nodelist=self.non_comm_qubits, node_shape="o", linewidths=1, edgecolors="black",node_color="white")
-        nx.draw_networkx_edges(self, pos, edgelist=self.comm_edges, edge_color="red")
-        nx.draw_networkx_edges(self, pos, edgelist=self.data_edges, edge_color="black")
-        nx.draw_networkx_labels(self, pos)
+        nx.draw_networkx_nodes(self, self.pos, nodelist=self.comm_qubits, node_shape="h",
+                                linewidths=1, edgecolors="black",node_color="white")
+        nx.draw_networkx_nodes(self, self.pos, nodelist=self.non_comm_qubits, node_shape="o",
+                                linewidths=1, edgecolors="black",node_color="white")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.comm_edges, edge_color="red")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.data_edges, edge_color="black")
+        nx.draw_networkx_labels(self, self.pos)
+
+        plt.show()
+    
+    def draw_mapping(self, mapping: Mapping):
+        free_nodes_set = set(mapping.get_free_p_nodes())
+        nx.draw_networkx_nodes(self, self.pos, nodelist=set(self.comm_qubits) & free_nodes_set, node_shape="h",
+                                linewidths=1, edgecolors="black",node_color="white")
+        nx.draw_networkx_nodes(self, self.pos, nodelist=set(self.comm_qubits) - free_nodes_set, node_shape="h",
+                                linewidths=1, edgecolors="black",node_color="grey")
+        nx.draw_networkx_nodes(self, self.pos, nodelist=set(self.non_comm_qubits) & free_nodes_set, node_shape="o",
+                                linewidths=1, edgecolors="black",node_color="white")
+        nx.draw_networkx_nodes(self, self.pos, nodelist=set(self.non_comm_qubits) - free_nodes_set, node_shape="o",
+                                linewidths=1, edgecolors="black",node_color="grey")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.comm_edges, edge_color="red")
+        nx.draw_networkx_edges(self, self.pos, edgelist=self.data_edges, edge_color="black")
+        nx.draw_networkx_labels(self, self.pos)
+
+        shifted_pos = {}
+        for node, coordinates in self.pos.items():
+            shifted_pos[node] = (coordinates[0] + 0.05, coordinates[1] + 0.08)
+        nx.draw_networkx_labels(self, shifted_pos, labels=mapping.inv, font_color="Red")
 
         plt.show()
     
@@ -152,7 +182,12 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
 
         return [len(core_free_nodes_map) for core_free_nodes_map in core_free_nodes_map]
+    
+    def register_active_telegate_qubits(self, p_q1, p_q2):
+        self.active_telegate_nodes = (p_q1, p_q2)
 
+    def clear_active_telegate_qubits(self):
+        self.active_telegate_nodes = ()
 
 @staticmethod
 def tokyo():
