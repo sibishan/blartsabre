@@ -22,7 +22,7 @@ from architecture import tokyo, sycamore
 from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 
-def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(50,), base_seed=1):
+def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), base_seed=1):
     cfgs = {}
     for h in heuristics:
         for it in iterations:
@@ -35,7 +35,7 @@ def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(50,), b
     return cfgs
 
 BASE_SEED = 1
-CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(50,), base_seed=BASE_SEED)
+CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), base_seed=BASE_SEED)
 
 CIRCUITS = load_qasm("./data/queko", recursive=True)
 

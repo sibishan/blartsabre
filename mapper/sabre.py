@@ -8,7 +8,7 @@ EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 
-NUM_ITERATIONS = 50
+NUM_ITERATIONS = 5
 
 def reduce_2_qubit_gates(circuit):
     for i in range(len(circuit.data)-1,-1,-1):
