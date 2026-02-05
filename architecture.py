@@ -3,13 +3,13 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from mapping import Mapping
 
-SINGLE_CORE_COMM_EDGE_WEIGHT = 10
+COMM_EDGE_WEIGHT = 2.0
     
 class QubitNetworkGraph(nx.Graph):
     def __init__(self, *args, **kwargs):
         super(QubitNetworkGraph, self).__init__(*args, **kwargs)
         nx.set_edge_attributes(self, 'data', 'type')
-        self.distance_matrix = nx.floyd_warshall(self)
+        self.distance_matrix = nx.floyd_warshall(self, weight="weight")
         self.pos = nx.spring_layout(self, iterations=500)
 
 
@@ -40,7 +40,7 @@ class SingleCoreDQGraph(QubitNetworkGraph):
 
         for u, v in self.comm_edges:
             if self.has_edge(u, v):
-                self[u][v]["weight"] = SINGLE_CORE_COMM_EDGE_WEIGHT
+                self[u][v]["weight"] = COMM_EDGE_WEIGHT
 
         self.distance_matrix = dict(nx.floyd_warshall(self, weight="weight"))
 
@@ -94,6 +94,10 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         self.comm_qubits = comm_subgraph.nodes()
         self.non_comm_qubits = self.nodes() - self.comm_qubits
 
+        for u, v in self.comm_edges:
+            self.edges[u, v]['weight'] = 2
+
+        self.distance_matrix = nx.floyd_warshall(self, weight="weight")
         self.separated_core_distance_matrix = nx.floyd_warshall(self.separated_core_graph)
 
         
@@ -144,20 +148,21 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         plt.show()
     
-    def get_nearest_free_qubit(self, mapping: Mapping, node):
+    def get_nth_nearest_intercore_free_qubit(self, mapping: Mapping, node, n = 0):
         free_nodes = mapping.get_free_p_nodes()
         core = self.qubit_core_map[node]
         core_free_nodes = [free_node for free_node in free_nodes if self.qubit_core_map[free_node] == core]
 
-        if len(core_free_nodes) == 0:
+        if len(core_free_nodes) <= n:
             return None
 
-        free_node_distance_map = {free_node: self.get_separated_core_distance_matrix()[node][free_node]
+        free_node_distance_map = {free_node: self.get_distance_matrix()[node][free_node]
                                 for free_node in core_free_nodes}
-        nearest_free = min(free_node_distance_map, key=free_node_distance_map.get)
+        sorted_map = sorted(free_node_distance_map.items(), key=lambda item: item[1])
+        nearest_free = sorted_map[n][0]
         return nearest_free
 
-    def get_nearest_free_qubit_map(self, mapping: Mapping):
+    def get_nth_nearest_free_qubit_map(self, mapping: Mapping, n = 0):
         free_nodes = mapping.get_free_p_nodes()
         core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
 
@@ -167,12 +172,14 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
             core = self.qubit_core_map[comm_node]
             core_free_nodes = core_free_nodes_map[core]
 
-            if len(core_free_nodes) == 0:
+            if len(core_free_nodes) <= n:
                 continue
 
             free_node_distance_map = {free_node: self.get_separated_core_distance_matrix()[comm_node][free_node]
                                     for free_node in core_free_nodes}
-            nearest_free = min(free_node_distance_map, key=free_node_distance_map.get)
+            sorted_map = sorted(free_node_distance_map.items(), key=lambda item: item[1])
+            nearest_free = sorted_map[n][0]
+            # nearest_free = min(free_node_distance_map, key=free_node_distance_map.get)
             free_qubit_map[comm_node] = nearest_free
         
         return free_qubit_map
