@@ -148,9 +148,9 @@ def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping
                          arch.separated_core_graph.has_edge(path[0],path[1]) and
                          arch.separated_core_graph.has_edge(path[2],path[3])):
                         teleportations.add(tuple(path))
-                if len(path) > 2:
+                if len(path) >= 3:
                     # get teleports
-                    # if is_forward:
+                    if is_forward:
                         if  (path[1] in arch.comm_qubits and path[1] in free_p_nodes and 
                              path[2] in arch.comm_qubits and path[2] in free_p_nodes and
                              arch.separated_core_graph.has_edge(path[0],path[1]) and
@@ -177,6 +177,32 @@ def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping
                              core_capacity[arch.qubit_core_map[path[-3]]] <= 2):
                             for target_qubit in arch.separated_core_graph.neighbors(path[-3]):
                                 if target_qubit not in free_p_nodes:
+                                    teleportations.add(tuple([target_qubit,path[-3],path[-2]]))
+                    else:
+                        if  (path[0] in arch.comm_qubits and path[1] in free_p_nodes and 
+                             path[1] in arch.comm_qubits and path[2] in free_p_nodes and
+                             arch.separated_core_graph.has_edge(path[2],path[1])):
+                            teleportations.add(tuple([path[0],path[1],path[2]]))
+
+                        if  (path[-1] in arch.comm_qubits and path[-2] in free_p_nodes and 
+                             path[-2] in arch.comm_qubits and path[-3] in free_p_nodes and
+                             arch.separated_core_graph.has_edge(path[-3],path[-2])):
+                            teleportations.add(tuple([path[-1],path[-2],path[-3]]))
+
+                        if  (path[1] in arch.comm_qubits and path[2] in free_p_nodes and 
+                            path[2] in arch.comm_qubits and
+                            core_capacity[arch.qubit_core_map[path[2]]] > 1 and
+                            core_capacity[arch.qubit_core_map[path[1]]] <= 2):
+                            for target_qubit in arch.separated_core_graph.neighbors(path[2]):
+                                if target_qubit in free_p_nodes:
+                                    teleportations.add(tuple([target_qubit,path[2],path[1]]))
+
+                        if  (path[-2] in arch.comm_qubits and path[-3] in free_p_nodes and 
+                            path[-3] in arch.comm_qubits and
+                            core_capacity[arch.qubit_core_map[path[-3]]] > 1 and
+                            core_capacity[arch.qubit_core_map[path[-2]]] <= 2):
+                            for target_qubit in arch.separated_core_graph.neighbors(path[-3]):
+                                if target_qubit in free_p_nodes:
                                     teleportations.add(tuple([target_qubit,path[-3],path[-2]]))
 
     # for comm_edge in arch.comm_edges:
@@ -338,6 +364,7 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
         reset_timer -= 1
         if reset_timer < 0:
             raise DeadlockError("reset_timer expired in sabre_pass")
+        print(circuit_dag.get_gate_count())
 
     return mapping, gate_execution_log
 
@@ -371,6 +398,14 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
     num_free = num_physical_qubits - num_logical_qubits
     num_cores = len(arch.core_node_groups)
     print("num_free", num_free, "num_cores", num_cores)
+    if num_free < 2:
+        print("Architecture configuration is incompatible with inter-core communication")
+    elif num_free * 2 < num_cores:
+        print("Architecture configuration is suboptimal for circuit routing")
+    elif num_free * 4 < num_cores:
+        print("Architecture configuration is standard for circuit routing")
+    else:
+        print("Architecture configuration is flexible for circuit routing")
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
