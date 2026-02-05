@@ -5,7 +5,7 @@ import qiskit.qasm2
 
 qc = qiskit.qasm2.load("./data/queko/BSS/16QBT_900CYC_QSE_9.qasm")
 
-# 15 qubit device
+# 20 qubit device
 arch = SingleCoreDQGraph([(0,1),(0,2),(0,3),(0,4),
                             (5,6),(6,7),(7,8),(8,9),
                             (10,11),(11,12),(12,13),(13,14),(14,15),(15,16),(16,17),(17,18),(18,19),(19,10),

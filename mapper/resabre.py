@@ -162,8 +162,7 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-
-def resabre(arch, quantum_circuit, verbose = False, return_log = False, seed=None):
+def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, seed=None):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values

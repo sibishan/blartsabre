@@ -109,7 +109,7 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         plt.show()
 
 @staticmethod
-def tokyo():
+def tokyo(offset=0):
     edges = []
 
     # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
@@ -130,6 +130,42 @@ def tokyo():
         edges.append((i, i + 4))
 
     return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
+
+@staticmethod
+def two_tokyo():
+    edges = []
+
+    edges += tokyo(offset=0).edges()
+    edges += tokyo(offset=20).edges()
+    edges+= [(4,20)]
+
+    comm_edges = [(4, 20)]
+
+    return SingleCoreDQGraph(edges, comm_edges, name="Two connected IBM Q Tokyo (40 qubits)")
+
+@staticmethod
+def three_tokyo():
+    edges = []
+
+    edges += tokyo(offset=0).edges()
+    edges += tokyo(offset=20).edges()
+    edges += tokyo(offset=40).edges()
+    edges+= [(4,20),(24,40)]
+
+    comm_edges = [(4,20),(24,40)]
+
+    return SingleCoreDQGraph(edges, comm_edges, name="Three connected IBM Q Tokyo (60 qubits)")
+
+@staticmethod
+def twenty_qubit_star_line_ring():
+    return SingleCoreDQGraph([(0,1),(0,2),(0,3),(0,4),
+                            (5,6),(6,7),(7,8),(8,9),
+                            (10,11),(11,12),(12,13),(13,14),(14,15),(15,16),(16,17),(17,18),(18,19),(19,10),
+                            (0,5), (9,10)],
+                        comm_edges=[(0,5),(9,10)],
+                        core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14,15,16,17,18,19]],
+                        name="20-qubit-star-line-ring"
+                        )
 
 @staticmethod
 def sycamore():
