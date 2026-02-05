@@ -8,12 +8,14 @@ from copy import deepcopy
 import networkx as nx
 
 EXTENDED_LAYER_SIZE = 10
-EXTENDED_HEURISTIC_WEIGHT = 0.25
+EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 FULL_CORE_PENALTY = 10
-COMM_EDGE_WEIGHT = 1.0
+COMM_EDGE_WEIGHT = 2.0
+TELE_BONUS = 0
+CONTRACTED_GRAPH_FREE_NODE_WEIGHT = 2
 
-RESET_TIMER_START = 100
+RESET_TIMER_START = 50
 
 NUM_ITERATIONS = 100
 
@@ -33,7 +35,7 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
         for i in range(len(core)-1):
             for j in range(i+1,len(core)):
                 if core[i] != core[j]:
-                    contracted_graph.add_edge(core[i], core[j], weight = abs(arch.get_distance_matrix()[core[i]][core[j]] - 1))
+                    contracted_graph.add_edge(core[i], core[j], weight = abs(arch.get_separated_core_distance_matrix()[core[i]][core[j]] - 1))
     if node1 in arch.comm_qubits:
         for u,v in contracted_graph.edges(node1):
             if u in arch.comm_qubits and v in arch.comm_qubits:
@@ -67,10 +69,12 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
             continue
 
         nearest_free_node = nearest_free_qubit_map[comm_node]
+        # print(comm_node,nearest_free_node)
 
-        free_node_score = arch.get_distance_matrix()[comm_node][nearest_free_node]
+        free_node_score = arch.get_separated_core_distance_matrix()[comm_node][nearest_free_node] * CONTRACTED_GRAPH_FREE_NODE_WEIGHT
         core_score = FULL_CORE_PENALTY if full_cores[core] else 0
         for u,v in contracted_graph.edges(comm_node):
+            # print(u,v,free_node_score)
             contracted_graph.edges[u, v]['weight'] = contracted_graph.edges[u, v]['weight'] + free_node_score/2
             if u in arch.comm_qubits and v in arch.comm_qubits:
                 contracted_graph.edges[u, v]['weight'] = contracted_graph.edges[u, v]['weight'] + core_score
@@ -112,6 +116,7 @@ def get_SWAP_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping, fr
     # Current implementation: get all adjacent SWAPs of front layer qubits
     #                         get all adjacent SWAPs of free qubits nearest comm qubits requiring teleportation
     swappable_nodes = set()
+    free_qubits = mapping.get_free_p_nodes()
     free_qubit_map = arch.get_nearest_free_qubit_map(mapping)
     traversed_comm_nodes = get_traversed_comm_nodes(arch, mapping, front_layer)
     for gate in front_layer:
@@ -122,13 +127,13 @@ def get_SWAP_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping, fr
     for comm_node in traversed_comm_nodes:
         swappable_nodes.add(free_qubit_map[comm_node])
     edges = arch.separated_core_graph.edges(swappable_nodes)
-    return list(edges)
+    return [edge for edge in edges if not (edge[0] in free_qubits and edge[1] in free_qubits)]
 
 def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping, front_layer, is_forward):
     # Current implementation: Add valid 4-length paths as a telegate
     #                         Add 3+ length path if 1st 3 qubits make a valid teleportation [or reversed]
     #                         To prevent deadlocks, add teleports targeting a full core in reverse
-    teleportations = []
+    teleportations = set()
     free_p_nodes = mapping.get_free_p_nodes()
     core_capacity = arch.get_core_capacity(mapping)
     for gate in front_layer:
@@ -142,7 +147,7 @@ def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping
                          path[2] in arch.comm_qubits and path[2] in free_p_nodes and
                          arch.separated_core_graph.has_edge(path[0],path[1]) and
                          arch.separated_core_graph.has_edge(path[2],path[3])):
-                        teleportations.append(list(path))
+                        teleportations.add(tuple(path))
                 if len(path) > 2:
                     # get teleports
                     # if is_forward:
@@ -150,30 +155,47 @@ def get_teleport_candidates(arch: DistributedQubitNetworkGraph, mapping: Mapping
                              path[2] in arch.comm_qubits and path[2] in free_p_nodes and
                              arch.separated_core_graph.has_edge(path[0],path[1]) and
                              core_capacity[arch.qubit_core_map[path[2]]] > 1):
-                            teleportations.append([path[0],path[1],path[2]])
+                            teleportations.add(tuple([path[0],path[1],path[2]]))
 
                         if  (path[-2] in arch.comm_qubits and path[-2] in free_p_nodes and 
                              path[-3] in arch.comm_qubits and path[-3] in free_p_nodes and
                              arch.separated_core_graph.has_edge(path[-1],path[-2]) and
                              core_capacity[arch.qubit_core_map[path[-3]]] > 1):
-                            teleportations.append([path[-1],path[-2],path[-3]])
-                        
-                        # if  (path[1] in arch.comm_qubits and path[1] in free_p_nodes and 
-                        #      path[2] in arch.comm_qubits and path[2] in free_p_nodes and
-                        #      core_capacity[arch.qubit_core_map[path[1]]] > 1 and
-                        #      core_capacity[arch.qubit_core_map[path[2]]] <= 1):
-                        #     for target_qubit in arch.separated_core_graph.edges(path[2]):
-                        #         if target_qubit not in free_p_nodes:
-                        #             teleportations.append([path[1],path[2],target_qubit])
+                            teleportations.add(tuple([path[-1],path[-2],path[-3]]))
 
-                        # if  (path[-2] in arch.comm_qubits and path[-2] in free_p_nodes and 
-                        #      path[-3] in arch.comm_qubits and path[-3] in free_p_nodes and
-                        #      core_capacity[arch.qubit_core_map[path[-2]]] > 1 and
-                        #      core_capacity[arch.qubit_core_map[path[-3]]] <= 1):
-                        #     for target_qubit in arch.separated_core_graph.edges(path[-3]):
-                        #         if target_qubit not in free_p_nodes:
-                        #             teleportations.append([path[-2],path[-3],target_qubit])
-    return teleportations
+                        if  (path[1] in arch.comm_qubits and path[1] in free_p_nodes and 
+                             path[2] in arch.comm_qubits and path[2] in free_p_nodes and
+                             core_capacity[arch.qubit_core_map[path[1]]] > 1 and
+                             core_capacity[arch.qubit_core_map[path[2]]] <= 2):
+                            for target_qubit in arch.separated_core_graph.neighbors(path[2]):
+                                if target_qubit not in free_p_nodes:
+                                    teleportations.add(tuple([target_qubit,path[2],path[1]]))
+
+                        if  (path[-2] in arch.comm_qubits and path[-2] in free_p_nodes and 
+                             path[-3] in arch.comm_qubits and path[-3] in free_p_nodes and
+                             core_capacity[arch.qubit_core_map[path[-2]]] > 1 and
+                             core_capacity[arch.qubit_core_map[path[-3]]] <= 2):
+                            for target_qubit in arch.separated_core_graph.neighbors(path[-3]):
+                                if target_qubit not in free_p_nodes:
+                                    teleportations.add(tuple([target_qubit,path[-3],path[-2]]))
+
+    # for comm_edge in arch.comm_edges:
+    #     q1, q2 = comm_edge
+    #     if  (q1 in free_p_nodes and q2 in free_p_nodes and
+    #             core_capacity[arch.qubit_core_map[q1]] > 1 and
+    #             core_capacity[arch.qubit_core_map[q2]] <= 1):
+    #         for target_qubit in arch.separated_core_graph.neighbors(q2):
+    #             if target_qubit not in free_p_nodes:
+    #                 teleportations.add(tuple([target_qubit,q2,q1]))
+
+    #     if  (q2 in free_p_nodes and q1 in free_p_nodes and
+    #             core_capacity[arch.qubit_core_map[q2]] > 1 and
+    #             core_capacity[arch.qubit_core_map[q1]] <= 1):
+    #         for target_qubit in arch.separated_core_graph.neighbors(q1):
+    #             if target_qubit not in free_p_nodes:
+    #                 teleportations.add(tuple([target_qubit,q1,q2]))
+
+    return list(teleportations)
 
 def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag: QuantumDAG, mapping: Mapping, operation_candidate, decay_array):
     temp_mapping = mapping.copy()
@@ -181,14 +203,16 @@ def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag: QuantumDAG, 
 
     front_layer_gates = circuit_dag.get_gates_from_nodes(circuit_dag.get_front_layer())
 
-    H_basic = 0
+    H_basic = TELE_BONUS if len(operation_candidate) >= 3 else 0
+    # print(operation_candidate)
     for gate in front_layer_gates:
         if len(gate.qubits) == 2:
             q1, q2 = gate.qubits
             if arch.qubit_core_map[temp_mapping.l_to_p(q1)] == arch.qubit_core_map[temp_mapping.l_to_p(q2)]:
-                gate_energy = arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
+                gate_energy = arch.get_separated_core_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)] - 1
             else:
                 gate_energy = DQC_gate_routing_energy(arch, temp_mapping, q1, q2)
+            # print(gate,gate_energy)
             H_basic += gate_energy
 
     if len(operation_candidate) == 4:
@@ -207,7 +231,7 @@ def mapping_energy(arch: DistributedQubitNetworkGraph, circuit_dag: QuantumDAG, 
         if len(gate.qubits) == 2:
             q1, q2 = gate.qubits
             if arch.qubit_core_map[temp_mapping.l_to_p(q1)] == arch.qubit_core_map[temp_mapping.l_to_p(q2)]:
-                gate_energy = arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
+                gate_energy = arch.get_separated_core_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
             else:
                 gate_energy = DQC_gate_routing_energy(arch, temp_mapping, q1, q2)
             H_extended += gate_energy
@@ -266,9 +290,22 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
                 operation_candidate = operation_candidates[operation_idx]
                 score[operation_idx] = mapping_energy(arch, circuit_dag, mapping, operation_candidate, decay_array)
 
-            print(operation_candidates)
-            print(score)
-            print(mapping)
+            # if reset_timer < 10:
+            #     print(operation_candidates)
+            #     print(score)
+            #     print(mapping)
+
+            #     temp_mapping = mapping.copy()
+            #     # update_mapping_operation(temp_mapping,(0,3),arch)
+            #     print("ahoy")
+            #     contracto = DQC_contracted_graph(arch,temp_mapping,*front_layer_gates[0].qubits)
+
+            #     pos = nx.spring_layout(contracto, k=1)
+            #     nx.draw(contracto, pos)
+            #     nx.draw_networkx_labels(contracto, pos)
+            #     nx.draw_networkx_edge_labels(contracto, pos)
+
+            #     arch.draw_mapping(temp_mapping)
 
             best_operation_idx = min(score, key=score.get)
             best_operation = operation_candidates[best_operation_idx]
@@ -292,9 +329,10 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
                     decay_array[i] = 1
                     decay_timer[i] = 0
 
-            print(best_operation)
-            print([gate for gate in front_layer_gates])
-            arch.draw_mapping(mapping)
+            # if reset_timer < 10:
+            #     print(best_operation)
+            #     print([gate for gate in front_layer_gates])
+            #     arch.draw_mapping(mapping)
         
         front_layer = circuit_dag.get_front_layer()
         reset_timer -= 1
@@ -359,7 +397,7 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
             _, gate_execution_log = sabre_pass(arch, initial_mapping, circuit_dag, True)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
-            print(iteration)
+            print(f"Iteration {iteration} ran successfully")
 
         except DeadlockError as e:
             deadlocks += 1
