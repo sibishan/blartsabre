@@ -212,7 +212,6 @@ def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, s
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
         except DeadlockError:
-            print(deadlocks)
             deadlocks += 1
             continue
     
@@ -227,7 +226,8 @@ def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, s
         if op == "SWAP" and arch.is_comm_edge(*e)
     )
     total_swaps = sum(1 for op, _ in best_gate_execution_log if op == "SWAP")
-    print("comm_swaps", comm_swaps, "total_swaps", total_swaps)
+    if verbose:
+        print("comm_swaps", comm_swaps, "total_swaps", total_swaps)
 
     if verbose:
         best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]

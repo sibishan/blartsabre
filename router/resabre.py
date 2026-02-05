@@ -150,7 +150,7 @@ def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
         decay_factor* (h_basic / len(front_gates)) + EXTENDED_HEURISTIC_WEIGHT * (h_ext / len(ext_gates))
     )
 
-def sabre_swap(arch, quantum_circuit, initial_mapping):
+def resabre_swap(arch, quantum_circuit, initial_mapping):
     """
     Routes QuantumDAG by inserting SWAPs, starting from initial mapping
     

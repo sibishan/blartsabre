@@ -3,8 +3,8 @@ from itertools import product
 from copy import deepcopy
 from tqdm import tqdm
 
-from mapper.resabre import sabre_layout
-from router.resabre import sabre_swap
+from mapper.resabre import resabre_layout
+from router.resabre import resabre_swap
 
 from architecture import two_tokyo, three_tokyo, twenty_qubit_star_line_ring
 from benchmarks.utils import load_qasm, init_circuit, save_stats_json
@@ -41,8 +41,10 @@ def validate_log(arch, log):
         gt, phys = payload
         gt = gt.upper()
 
-        # normalise phys to tuple
-        if not isinstance(phys, tuple):
+        # normalise phys
+        if isinstance(phys, int):
+            phys = (phys,)
+        elif not isinstance(phys, tuple):
             phys = tuple(phys)
 
         # Validate 2q connectivity for 2q ops only
@@ -67,23 +69,37 @@ def validate_log(arch, log):
 
     return True
 
+def count_swaps(log):
+    return sum(1 for op, _ in log if op == "SWAP")
 
-def run_our_sabre_pass(qc, arch, config):
+def count_comm_swaps(arch, log):
+    if not hasattr(arch, "is_comm_edge"):
+        return 0
+    return sum(
+        1 for op, (u, v) in log
+        if op == "SWAP" and arch.is_comm_edge(u, v)
+    )
+
+
+def run_resabre_pass(qc, arch, config):
     layout_seed = config["layout_seed"]
 
     map_start = time.perf_counter()
-    init_mapping = sabre_layout(arch, qc, seed=layout_seed)
+    init_mapping = resabre_layout(arch, qc, seed=layout_seed)
     map_end = time.perf_counter()
     mapping_time = map_end - map_start
 
     route_start = time.perf_counter()
-    routed_qc, _, log = sabre_swap(arch, qc, init_mapping)
+    routed_qc, _, log = resabre_swap(arch, qc, init_mapping)
     route_end = time.perf_counter()
     routing_time = route_end - route_start
 
     routed_ops = routed_qc.count_ops()
     routed_cx = routed_ops.get("cx", 0)
     routed_swaps = routed_ops.get("swap", 0)
+
+    # comm swaps from log (more reliable than counting in circuit because comm is an edge class)
+    comm_swaps = count_comm_swaps(arch, log)
 
     # validate without breaking benchmarking
     try:
@@ -97,116 +113,40 @@ def run_our_sabre_pass(qc, arch, config):
         "config": {
             "layout_seed": layout_seed,
             "max_iterations": 50,
-            "swap_heuristic": {"EXTENDED_LAYER_SIZE": 10,
-                               "EXTENDED_HEURISTIC_WEIGHT": 0.5,
-                               "DECAY_VALUE": 0.001},
+            "swap_heuristic": {
+                "EXTENDED_LAYER_SIZE": 10,
+                "EXTENDED_HEURISTIC_WEIGHT": 0.5,
+                "DECAY_VALUE": 0.001
+            },
             "swap_seed": None,
         },
         "routed_swaps": routed_swaps,
+        "comm_swaps": comm_swaps,
         "routed_cx": routed_cx,
         "routed_depth": routed_qc.depth(),
         "routed_size": routed_qc.size(),
         "mapping_time": mapping_time,
-        "routing_time":  routing_time,
+        "routing_time": routing_time,
         "is_valid": is_valid,
         "valid_error": valid_error,
     }
 
 
-# OG SABRE and Light SABRE
-all_rows_og = []
-all_rows_light = []
-
-pairs_qiskit = list(product(CIRCUITS.items(), CONFIGS.items()))
-it = tqdm(pairs_qiskit, desc="Benchmarking (OG + Light)", unit="run")
-
-for (cir_name, cir), (config_name, config) in it:
-    init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
-    arch, cm = build_arch(num_qubits)
-
-    qc_og = deepcopy(init_cir)
-    qc_light = deepcopy(init_cir)
-
-    # OG
-    try:
-        stats = sabre_pass(qc_og, cm, config)
-        stats.update({
-            "impl": "og_sabre",
-            "name": cir_name,
-            "config_name": config_name,
-            "arch_name": arch.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-        })
-        stats["total_time"] = stats["init_time"] + stats["mapping_time"] + stats["routing_time"]
-        all_rows_og.append(stats)
-    except Exception as e:
-        all_rows_og.append({
-            "impl": "og_sabre",
-            "name": cir_name,
-            "config_name": config_name,
-            "arch_name": arch.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-            "error": repr(e),
-        })
-
-    # Light
-    try:
-        stats = lightsabre_pass(qc_light, cm, config)
-        stats.update({
-            "impl": "light_sabre",
-            "name": cir_name,
-            "config_name": config_name,
-            "arch_name": arch.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-        })
-        stats["total_time"] = stats["init_time"] + stats["mapping_time"] + stats["routing_time"]
-        all_rows_light.append(stats)
-    except Exception as e:
-        all_rows_light.append({
-            "impl": "light_sabre",
-            "name": cir_name,
-            "config_name": config_name,
-            "arch_name": arch.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-            "error": repr(e),
-        })
-
-
-# OUR SABRE
+# RESABRE
 all_rows_our = []
 pairs_our = list(CIRCUITS.items())
-it2 = tqdm(pairs_our, desc="Benchmarking (Our SABRE)", unit="run")
+it2 = tqdm(pairs_our, desc="Benchmarking (RESABRE)", unit="run")
 
 for cir_name, cir in it2:
     init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
-    arch, _cm = build_arch(num_qubits)
+    arch = build_arch(num_qubits)
 
     qc_our = deepcopy(init_cir)
 
     try:
-        stats = run_our_sabre_pass(qc_our, arch, {"layout_seed": BASE_SEED})
+        stats = run_resabre_pass(qc_our, arch, {"layout_seed": BASE_SEED})
         stats.update({
-            "impl": "our_sabre",
+            "impl": "resabre",
             "name": cir_name,
             "config_name": f"seed{BASE_SEED}",
             "arch_name": arch.name,
@@ -221,7 +161,7 @@ for cir_name, cir in it2:
         all_rows_our.append(stats)
     except Exception as e:
         all_rows_our.append({
-            "impl": "our_sabre",
+            "impl": "resabre",
             "name": cir_name,
             "config_name": f"seed{BASE_SEED}",
             "arch_name": arch.name,
@@ -234,10 +174,6 @@ for cir_name, cir in it2:
             "error": repr(e),
         })
 
-out_og = save_stats_json(all_rows_og, "./benchmarks/sabre/results/og_sabre.json", indent=4)
-out_light = save_stats_json(all_rows_light, "./benchmarks/sabre/results/light_sabre.json", indent=4)
-out_our = save_stats_json(all_rows_our, "./benchmarks/sabre/results/our_sabre.json", indent=4)
+out_re = save_stats_json(all_rows_our, "./benchmarks/resabre/results/resabre.json", indent=4)
 
-print(f"Saved {len(all_rows_og)} rows to {out_og}")
-print(f"Saved {len(all_rows_light)} rows to {out_light}")
-print(f"Saved {len(all_rows_our)} rows to {out_our}")
+print(f"Saved {len(all_rows_our)} rows to {out_re}")
