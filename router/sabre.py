@@ -1,6 +1,7 @@
 import math
 from copy import deepcopy
 from mapping import Mapping
+import mapping
 from qiskit import QuantumCircuit
 from convert import from_qiskit
 
@@ -193,7 +194,10 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
                 gate = dag.get_gate_from_node(node)
 
                 emit_gate_qiskit(routed_qc, gate, mapping)
-                log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
+                if gate.gate_type.upper() == "MEASURE":
+                    log.append(("GATE", ("MEASURE", (mapping[gate.qubits[0]], gate.clbits[0]))))
+                else:
+                    log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
 
                 for q in gate.qubits:
                     decay_array[mapping[q]] = 1.0
