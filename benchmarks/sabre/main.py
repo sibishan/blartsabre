@@ -294,7 +294,7 @@ for cir_name, cir in it2:
     qc_our = deepcopy(init_cir)
 
     try:
-        stats = run_our_sabre_pass(qc_our, arch, BASE_SEED)
+        stats = run_our_sabre_pass(qc_our, arch, {"layout_seed": BASE_SEED})
         stats.update({
             "impl": "our_sabre",
             "name": cir_name,
