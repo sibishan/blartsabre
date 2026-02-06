@@ -8,7 +8,6 @@ EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 COMM_SWAP_LAMBDA = 2.0
-# STAGNATION_WINDOW = 400  # optional
 
 def is_2q(gate):
     return len(gate.qubits) == 2
@@ -150,7 +149,7 @@ def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
         decay_factor* (h_basic / len(front_gates)) + EXTENDED_HEURISTIC_WEIGHT * (h_ext / len(ext_gates))
     )
 
-def resabre_swap(arch, quantum_circuit, initial_mapping):
+def resabre_swap(arch, quantum_circuit, initial_mapping, relax_comm=False):
     """
     Routes QuantumDAG by inserting SWAPs, starting from initial mapping
     
@@ -211,8 +210,6 @@ def resabre_swap(arch, quantum_circuit, initial_mapping):
             if not swap_cands:
                 raise RuntimeError("No SWAP candidates found, check graph connectivity and mapping.")
             
-            # relax_comm = (no_progress_swaps >= STAGNATION_WINDOW)
-            
             scores = {}
             for (p1, p2) in swap_cands:
                 tmp = Mapping(mapping.copy())
@@ -220,7 +217,7 @@ def resabre_swap(arch, quantum_circuit, initial_mapping):
                 h = SWAP_heuristic(dag, tmp, dist_matrix, (p1, p2), decay_array)
 
                 comm_penalty = 0.0
-                if hasattr(arch, "is_comm_edge") and arch.is_comm_edge(p1, p2): # and not relax_comm:
+                if hasattr(arch, "is_comm_edge") and arch.is_comm_edge(p1, p2) and not relax_comm:
                     comm_penalty = COMM_SWAP_LAMBDA
 
                 scores[(p1, p2)] = h + comm_penalty

@@ -11,7 +11,7 @@ from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 BASE_SEED = 1
 
-CIRCUITS = load_qasm("./data/queko", recursive=True)
+CIRCUITS = load_qasm("./data/queko/BIGD", recursive=True)
 
 def build_arch(num_qubits):
     if num_qubits > 60:
@@ -81,16 +81,16 @@ def count_comm_swaps(arch, log):
     )
 
 
-def run_resabre_pass(qc, arch, config):
+def run_resabre_pass(qc, arch, config, relax_comm=False):
     layout_seed = config["layout_seed"]
 
     map_start = time.perf_counter()
-    init_mapping = resabre_layout(arch, qc, seed=layout_seed)
+    init_mapping = resabre_layout(arch, qc, seed=layout_seed, relax_comm=relax_comm)
     map_end = time.perf_counter()
     mapping_time = map_end - map_start
 
     route_start = time.perf_counter()
-    routed_qc, _, log = resabre_swap(arch, qc, init_mapping)
+    routed_qc, _, log = resabre_swap(arch, qc, init_mapping, relax_comm=relax_comm)
     route_end = time.perf_counter()
     routing_time = route_end - route_start
 
@@ -133,7 +133,8 @@ def run_resabre_pass(qc, arch, config):
 
 
 # RESABRE
-all_rows_our = []
+all_rows_resabre = []
+all_rows_relaxed_resabre = []
 pairs_our = list(CIRCUITS.items())
 it2 = tqdm(pairs_our, desc="Benchmarking (RESABRE)", unit="run")
 
@@ -144,7 +145,7 @@ for cir_name, cir in it2:
     qc_our = deepcopy(init_cir)
 
     try:
-        stats = run_resabre_pass(qc_our, arch, {"layout_seed": BASE_SEED})
+        stats = run_resabre_pass(qc_our, arch, {"layout_seed": BASE_SEED}, relax_comm=False)
         stats.update({
             "impl": "resabre",
             "name": cir_name,
@@ -158,9 +159,9 @@ for cir_name, cir in it2:
             "og_size": og_size,
         })
         stats["total_time"] = stats["init_time"] + stats["mapping_time"] + stats["routing_time"]
-        all_rows_our.append(stats)
+        all_rows_resabre.append(stats)
     except Exception as e:
-        all_rows_our.append({
+        all_rows_resabre.append({
             "impl": "resabre",
             "name": cir_name,
             "config_name": f"seed{BASE_SEED}",
@@ -174,6 +175,39 @@ for cir_name, cir in it2:
             "error": repr(e),
         })
 
-out_re = save_stats_json(all_rows_our, "./benchmarks/resabre/results/resabre.json", indent=4)
+        try:
+            stats = run_resabre_pass(qc_our, arch, {"layout_seed": BASE_SEED}, relax_comm=True)
+            stats.update({
+                "impl": "resabre",
+                "name": cir_name,
+                "config_name": f"seed{BASE_SEED}",
+                "arch_name": arch.name,
+                "num_qubits": num_qubits,
+                "init_time": init_time,
+                "og_cx": og_cx,
+                "og_swaps": og_swaps,
+                "og_depth": og_depth,
+                "og_size": og_size,
+            })
+            stats["total_time"] = stats["init_time"] + stats["mapping_time"] + stats["routing_time"]
+            all_rows_relaxed_resabre.append(stats)
+        except Exception as e:
+            all_rows_relaxed_resabre.append({
+                "impl": "resabre",
+                "name": cir_name,
+                "config_name": f"seed{BASE_SEED}",
+                "arch_name": arch.name,
+                "num_qubits": num_qubits,
+                "init_time": init_time,
+                "og_cx": og_cx,
+                "og_swaps": og_swaps,
+                "og_depth": og_depth,
+                "og_size": og_size,
+                "error": repr(e),
+            })
 
-print(f"Saved {len(all_rows_our)} rows to {out_re}")
+out_re = save_stats_json(all_rows_resabre, "./benchmarks/resabre/results/resabre.json", indent=4)
+out_relaxed = save_stats_json(all_rows_relaxed_resabre, "./benchmarks/resabre/results/resabre_relaxed.json", indent=4)
+
+print(f"Saved {len(all_rows_resabre)} rows to {out_re}")
+print(f"Saved {len(all_rows_relaxed_resabre)} rows to {out_relaxed}")

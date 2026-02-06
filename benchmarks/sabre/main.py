@@ -37,7 +37,7 @@ def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), ba
 BASE_SEED = 1
 CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), base_seed=BASE_SEED)
 
-CIRCUITS = load_qasm("./data/queko", recursive=True)
+CIRCUITS = load_qasm("./data/queko/BIGD", recursive=True)
 
 def build_arch(num_qubits):
     if num_qubits > 54:
@@ -283,6 +283,11 @@ for (cir_name, cir), (config_name, config) in it:
             "error": repr(e),
         })
 
+out_og = save_stats_json(all_rows_og, "./benchmarks/sabre/results/og_sabre.json", indent=4)
+out_light = save_stats_json(all_rows_light, "./benchmarks/sabre/results/light_sabre.json", indent=4)
+
+print(f"Saved {len(all_rows_og)} rows to {out_og}")
+print(f"Saved {len(all_rows_light)} rows to {out_light}")
 
 # OUR SABRE
 all_rows_our = []
@@ -326,10 +331,6 @@ for cir_name, cir in it2:
             "error": repr(e),
         })
 
-out_og = save_stats_json(all_rows_og, "./benchmarks/sabre/results/og_sabre.json", indent=4)
-out_light = save_stats_json(all_rows_light, "./benchmarks/sabre/results/light_sabre.json", indent=4)
 out_our = save_stats_json(all_rows_our, "./benchmarks/sabre/results/our_sabre.json", indent=4)
 
-print(f"Saved {len(all_rows_og)} rows to {out_og}")
-print(f"Saved {len(all_rows_light)} rows to {out_light}")
 print(f"Saved {len(all_rows_our)} rows to {out_our}")

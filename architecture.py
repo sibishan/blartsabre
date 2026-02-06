@@ -108,53 +108,45 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         plt.show()
 
-@staticmethod
 def tokyo(offset=0):
     edges = []
 
-    # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
     for start in (0, 5, 10, 15):
         for i in range(start, start + 4):
-            edges.append((i, i + 1))
+            edges.append((i + offset, i + 1 + offset))
 
-    # vertical links between rows: i <-> i+5 for i = 0..14
     for i in range(0, 15):
-        edges.append((i, i + 5))
+        edges.append((i + offset, i + 5 + offset))
 
-    # diagonals +6 for these i
     for i in (1, 3, 5, 7, 11, 13):
-        edges.append((i, i + 6))
+        edges.append((i + offset, i + 6 + offset))
 
-    # diagonals +4 for these i
     for i in (2, 4, 6, 8, 12, 14):
-        edges.append((i, i + 4))
+        edges.append((i + offset, i + 4 + offset))
 
-    return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
+    return QubitNetworkGraph(edges, name=f"IBM Q Tokyo (20 qubits, offset {offset})")
 
-@staticmethod
+
 def two_tokyo():
     edges = []
-
-    edges += tokyo(offset=0).edges()
-    edges += tokyo(offset=20).edges()
-    edges+= [(4,20)]
+    edges += list(tokyo(offset=0).edges())
+    edges += list(tokyo(offset=20).edges())
+    edges += [(4, 20)]
 
     comm_edges = [(4, 20)]
+    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Two connected IBM Q Tokyo (40 qubits)")
 
-    return SingleCoreDQGraph(edges, comm_edges, name="Two connected IBM Q Tokyo (40 qubits)")
 
-@staticmethod
 def three_tokyo():
     edges = []
+    edges += list(tokyo(offset=0).edges())
+    edges += list(tokyo(offset=20).edges())
+    edges += list(tokyo(offset=40).edges())
+    edges += [(4, 20), (24, 40)]
 
-    edges += tokyo(offset=0).edges()
-    edges += tokyo(offset=20).edges()
-    edges += tokyo(offset=40).edges()
-    edges+= [(4,20),(24,40)]
+    comm_edges = [(4, 20), (24, 40)]
+    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Three connected IBM Q Tokyo (60 qubits)")
 
-    comm_edges = [(4,20),(24,40)]
-
-    return SingleCoreDQGraph(edges, comm_edges, name="Three connected IBM Q Tokyo (60 qubits)")
 
 @staticmethod
 def twenty_qubit_star_line_ring():

@@ -9,7 +9,6 @@ EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 COMM_SWAP_LAMBDA = 2.0
 RESET_TIMER_START = 5000
-# STAGNATION_WINDOW = 400  # how many swaps with no executed gate before we relax comm penalty
 
 NUM_ITERATIONS = 5
 
@@ -61,7 +60,7 @@ def update_mapping(mapping, p_q1, p_q2):
     return mapping
 
 
-def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
+def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=False):
     circuit_dag = deepcopy(circuit_dag)
     mapping = initial_mapping.copy()
 
@@ -108,9 +107,6 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
             if not SWAP_candidates:
                 raise DeadlockError("No SWAP candidates available")
 
-            # if we have been swapping too long with no progress, relax comm penalty for one step
-            # relax_comm = (no_progress_swaps >= STAGNATION_WINDOW)
-
             for u, v in SWAP_candidates:
                 temp_mapping = update_mapping(mapping.copy(), u, v)
 
@@ -125,13 +121,11 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
                 decay_factor = 1.0 + max(decay_array[u], decay_array[v])
                 h *= decay_factor
 
-                # # comm penalty
-                # if relax_comm:
-                #     comm_penalty = 0.0
-                # else:
-                #     comm_penalty = COMM_SWAP_LAMBDA if arch.is_comm_edge(u, v) else 0.0
-                #     comm_penalty = COMM_SWAP_LAMBDA if arch.is_comm_edge(u, v) else 0.0
-                comm_penalty = COMM_SWAP_LAMBDA if arch.is_comm_edge(u, v) else 0.0
+                # comm penalty
+                if relax_comm:
+                    comm_penalty = 0.0
+                else:
+                    comm_penalty = COMM_SWAP_LAMBDA if arch.is_comm_edge(u, v) else 0.0
 
                 score[(u, v)] = h + comm_penalty
 
@@ -162,7 +156,7 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, seed=None):
+def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, seed=None, relax_comm=False):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -206,9 +200,9 @@ def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, s
             initial_mapping = Mapping(enumerate(random_mapping))
 
 
-            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
-            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
-            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=relax_comm)
+            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag, relax_comm=relax_comm)
+            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=relax_comm)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
         except DeadlockError:

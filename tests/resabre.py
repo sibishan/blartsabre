@@ -44,23 +44,4 @@ def count_comm_swaps(arch, log):
 print("comm swaps =", count_comm_swaps(arch, log))
 print("total swaps =", sum(1 for op, _ in log if op == "SWAP"))
 
-from collections import Counter
-
-def count_swaps_in_log(log):
-    return sum(1 for op, _ in log if op == "SWAP")
-
-def count_2q_gates_in_log(log):
-    c = 0
-    for op, payload in log:
-        if op == "GATE":
-            gt, _ = payload
-            if gt.upper() in ("CX","CZ","SWAP"):
-                c += 1
-    return c
-
-print("log swaps:", count_swaps_in_log(log))
-print("qc swaps :", routed_qc.count_ops().get("swap", 0))
-print("log CX/CZ:", count_2q_gates_in_log(log))
-print("qc CX/CZ :", routed_qc.count_ops().get("cx", 0) + routed_qc.count_ops().get("cz", 0))
-
 
