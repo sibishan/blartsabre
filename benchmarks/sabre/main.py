@@ -37,7 +37,7 @@ def make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), ba
 BASE_SEED = 1
 CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(5,), base_seed=BASE_SEED)
 
-CIRCUITS = load_qasm("./data/queko", recursive=True)
+CIRCUITS = load_qasm("./data/quekno", recursive=True)
 
 def build_arch(num_qubits):
     if num_qubits > 54:

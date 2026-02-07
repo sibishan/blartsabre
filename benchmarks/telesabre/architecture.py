@@ -170,7 +170,7 @@ def STAR_LINE_RING():
 
     return arch
 
-def tokyo_edges(offset: int):
+def tokyo_edges(offset=0):
         e = []
 
         # 4 horizontal lines of length 5

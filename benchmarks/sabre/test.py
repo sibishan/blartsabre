@@ -37,13 +37,13 @@ from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 # CONFIGS = make_configs(heuristics=("basic", "lookahead", "decay"), iterations=(3,))
 
-CIRCUITS = load_qasm("data/queko", recursive=True)
-# print(CIRCUITS.keys())
+CIRCUITS = load_qasm("data/quekno", recursive=True)
+# # print(CIRCUITS.keys())
 
 for i in range(900):
-   if i == 606:
+   if i == 135:
        print(list(CIRCUITS.keys())[i])
-# qc = qasm2.load("./data/queko/BSS/16QBT_200CYC_QSE_2.qasm")
+# qc = qasm2.load("./data/queko/BNTF/54QBT_30CYC_QSE_1.qasm")
 
 # config = {"layout_seed": 1,
 #             "max_iterations": 3,
@@ -137,9 +137,10 @@ for i in range(900):
 #     }
 
 
-# arch = tokyo()
+arch = sycamore()
 
-# init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(qc)
-# stats = our_sabre_pass(init_cir, arch, config)
+init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(qc)
+init_mapping = sabre_layout(arch, qc, seed=1, verbose=True)
+routed_qc, _, log = sabre_swap(arch, qc, init_mapping)
 
-# print(stats)
+print(log)
