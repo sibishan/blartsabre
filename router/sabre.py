@@ -1,4 +1,7 @@
+import math
 from copy import deepcopy
+from mapping import Mapping
+import mapping
 from qiskit import QuantumCircuit
 from convert import from_qiskit
 
@@ -41,10 +44,31 @@ def emit_gate_qiskit(out_qc, gate, mapping):
         out_qc.ry(p.get("param_0"), phys[0])
     elif gt == "RZ":
         out_qc.rz(p.get("param_0"), phys[0])
+    elif gt == "BARRIER":
+        out_qc.barrier(*phys)
     elif gt == "MEASURE":
         if len(gate.qubits) != 1 or len(gate.clbits) != 1:
             raise ValueError(f"MEASURE expects 1 qubit and 1 clbit, got {gate.qubits}, {gate.clbits}")
         out_qc.measure(phys[0], gate.clbits[0])
+    elif gt in ("U1", "P", "PHASE"):
+        lam = p.get("param_0")
+        if lam is None:
+            raise ValueError(f"U1 missing param_0, gate.parameters={gate.parameters}")
+        out_qc.p(lam, phys[0])
+    elif gt == "U2":
+        phi = p.get("param_0")
+        lam = p.get("param_1")
+        if phi is None or lam is None:
+            raise ValueError(f"U2 missing params, gate.parameters={gate.parameters}")
+        out_qc.u(math.pi / 2, phi, lam, phys[0])
+    elif gt in ("U3", "U"):
+        theta = p.get("param_0")
+        phi   = p.get("param_1")
+        lam   = p.get("param_2")
+        if theta is None or phi is None or lam is None:
+            raise ValueError(f"{gt} missing params, gate.parameters={gate.parameters}")
+        out_qc.u(theta, phi, lam, phys[0])
+
 
     # 2q gates
     elif gt == "CX":
@@ -140,7 +164,7 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
     else:
         raise ValueError("SABRE Router only accepts Qiskit QuantumCircuit")
     
-    mapping = initial_mapping.copy()
+    mapping = Mapping(initial_mapping.copy())
     num_physical_qubits = len(arch)
     dist_matrix = arch.get_distance_matrix()
 
@@ -170,7 +194,10 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
                 gate = dag.get_gate_from_node(node)
 
                 emit_gate_qiskit(routed_qc, gate, mapping)
-                log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
+                if gate.gate_type.upper() == "MEASURE":
+                    log.append(("GATE", ("MEASURE", (mapping[gate.qubits[0]], gate.clbits[0]))))
+                else:
+                    log.append(("GATE", (gate.gate_type, tuple(mapping[q] for q in gate.qubits))))
 
                 for q in gate.qubits:
                     decay_array[mapping[q]] = 1.0
@@ -185,11 +212,11 @@ def sabre_swap(arch, quantum_circuit, initial_mapping):
             
             scores = {}
             for (p1, p2) in swap_cands:
-                tmp = mapping.copy()
+                tmp = Mapping(mapping.copy())
                 safe_swap_mapping(tmp, p1, p2)
                 scores[(p1, p2)] = SWAP_heuristic(dag, tmp, dist_matrix, (p1, p2), decay_array)
             
-            best = min(scores, key=scores.get)
+            best = min(scores.items(), key=lambda kv: (kv[1], kv[0]))[0]
             p1, p2 = best
 
             routed_qc.swap(p1, p2)

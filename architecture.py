@@ -202,64 +202,80 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
     def clear_active_telegate_qubits(self):
         self.active_telegate_nodes = ()
 
-@staticmethod
-def tokyo():
+def tokyo(offset=0):
     edges = []
 
-    # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
     for start in (0, 5, 10, 15):
         for i in range(start, start + 4):
-            edges.append((i, i + 1))
+            edges.append((i + offset, i + 1 + offset))
 
-    # vertical links between rows: i <-> i+5 for i = 0..14
     for i in range(0, 15):
-        edges.append((i, i + 5))
+        edges.append((i + offset, i + 5 + offset))
 
-    # diagonals +6 for these i
     for i in (1, 3, 5, 7, 11, 13):
-        edges.append((i, i + 6))
+        edges.append((i + offset, i + 6 + offset))
 
-    # diagonals +4 for these i
     for i in (2, 4, 6, 8, 12, 14):
-        edges.append((i, i + 4))
+        edges.append((i + offset, i + 4 + offset))
 
-    return QubitNetworkGraph(edges, name="IBM Q Tokyo (20 qubits)")
+    return QubitNetworkGraph(edges, name=f"IBM Q Tokyo (20 qubits, offset {offset})")
+
+
+def two_tokyo():
+    edges = []
+    edges += list(tokyo(offset=0).edges())
+    edges += list(tokyo(offset=20).edges())
+    edges += [(4, 20)]
+
+    comm_edges = [(4, 20)]
+    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Two connected IBM Q Tokyo (40 qubits)")
+
+
+def three_tokyo():
+    edges = []
+    edges += list(tokyo(offset=0).edges())
+    edges += list(tokyo(offset=20).edges())
+    edges += list(tokyo(offset=40).edges())
+    edges += [(4, 20), (24, 40)]
+
+    comm_edges = [(4, 20), (24, 40)]
+    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Three connected IBM Q Tokyo (60 qubits)")
+
 
 @staticmethod
-def rochester():
-    edges = []
+def twenty_qubit_star_line_ring():
+    return SingleCoreDQGraph([(0,1),(0,2),(0,3),(0,4),
+                            (5,6),(6,7),(7,8),(8,9),
+                            (10,11),(11,12),(12,13),(13,14),(14,15),(15,16),(16,17),(17,18),(18,19),(19,10),
+                            (0,5), (9,10)],
+                        comm_edges=[(0,5),(9,10)],
+                        core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14,15,16,17,18,19]],
+                        name="20-qubit-star-line-ring"
+                        )
 
-    # Build the same "I_1" index set:
-    # 0..3, 7..14, 19..26, 30..37, 42..49
-    I_1 = (
-        list(range(0, 4)) +
-        list(range(7, 15)) +
-        list(range(19, 27)) +
-        list(range(30, 38)) +
-        list(range(42, 50))
+@staticmethod
+def sycamore():
+    edges = set()
+
+    nodes = list(range(54))
+    I = (
+        list(range(6, 12)) +
+        list(range(18, 24)) +
+        list(range(30, 36)) +
+        list(range(42, 48))
     )
+    Iset = set(I)
 
-    # Consecutive links (i, i+1) for i in I_1
-    for i in I_1:
-        edges.append((i, i + 1))
+    for i in I:
+        for j in nodes:
+            if j in Iset:
+                continue
+            if (i - j) in (5, 6) or (j - i) in (6, 7):
+                a, b = (i, j) if i < j else (j, i)
+                edges.add((a, b))
 
-    # Extra couplers (same as E)
-    edges.extend([
-        (0, 5), (5, 9),
-        (4, 6), (6, 13),
-        (7, 16), (16, 19),
-        (11, 17), (17, 23),
-        (15, 18), (18, 27),
-        (21, 28), (28, 32),
-        (25, 29), (29, 36),
-        (30, 39), (39, 42),
-        (34, 40), (40, 46),
-        (38, 41), (41, 50),
-        (44, 51),
-        (48, 52),
-    ])
+    return QubitNetworkGraph(sorted(edges), name="Google Sycamore (54 qubits)")
 
-    return QubitNetworkGraph(edges, name="IBM Q Rochester (53 qubits)")
 
 def multi_core_grid(core_height, core_width, core_rows, core_cols):
     edges = []

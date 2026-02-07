@@ -1,6 +1,6 @@
 from convert import from_qiskit
 from qiskit import QuantumCircuit
-from bidict import bidict
+from mapping import Mapping
 import random
 from copy import deepcopy
 
@@ -9,9 +9,8 @@ EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001
 COMM_SWAP_LAMBDA = 2.0
 RESET_TIMER_START = 5000
-STAGNATION_WINDOW = 400  # how many swaps with no executed gate before we relax comm penalty
 
-NUM_ITERATIONS = 50
+NUM_ITERATIONS = 5
 
 class DeadlockError(RuntimeError): pass
 
@@ -57,15 +56,11 @@ def SWAP_heuristic(circuit_dag, temp_mapping, dist_matrix, SWAP_candidate, decay
     return H
 
 def update_mapping(mapping, p_q1, p_q2):
-    temp1 = mapping.inv[p_q1]
-    temp2 = mapping.inv[p_q2]
-    mapping.inv[p_q1] = None
-    mapping.inv[p_q2] = temp1
-    mapping.inv[p_q1] = temp2
+    mapping.swap_p_qubits(p_q1, p_q2)
     return mapping
 
 
-def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
+def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=False):
     circuit_dag = deepcopy(circuit_dag)
     mapping = initial_mapping.copy()
 
@@ -111,9 +106,6 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
 
             if not SWAP_candidates:
                 raise DeadlockError("No SWAP candidates available")
-
-            # if we have been swapping too long with no progress, relax comm penalty for one step
-            relax_comm = (no_progress_swaps >= STAGNATION_WINDOW)
 
             for u, v in SWAP_candidates:
                 temp_mapping = update_mapping(mapping.copy(), u, v)
@@ -164,8 +156,7 @@ def sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag):
     return mapping, gate_execution_log
 
 
-
-def resabre(arch, quantum_circuit, verbose = False, return_log = False):
+def resabre_layout(arch, quantum_circuit, verbose = False, return_log = False, seed=None, relax_comm=False):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -174,6 +165,9 @@ def resabre(arch, quantum_circuit, verbose = False, return_log = False):
     num_logical_qubits = 0
     circuit_dag = None
     reverse_circuit_dag = None
+
+    if seed is not None:
+        random.seed(int(seed))
 
     if isinstance(quantum_circuit, QuantumCircuit):
         quantum_circuit = quantum_circuit.decompose()
@@ -203,11 +197,12 @@ def resabre(arch, quantum_circuit, verbose = False, return_log = False):
         try:
             random_mapping = list(range(num_physical_qubits))
             random.shuffle(random_mapping)
-            initial_mapping = bidict(enumerate(random_mapping))
+            initial_mapping = Mapping(enumerate(random_mapping))
 
-            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
-            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag)
-            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag)
+
+            final_mapping, _ = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=relax_comm)
+            initial_mapping, _ = sabre_forward_pass(arch, dist_matrix, final_mapping, reverse_circuit_dag, relax_comm=relax_comm)
+            _, gate_execution_log = sabre_forward_pass(arch, dist_matrix, initial_mapping, circuit_dag, relax_comm=relax_comm)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
         except DeadlockError:
@@ -225,7 +220,8 @@ def resabre(arch, quantum_circuit, verbose = False, return_log = False):
         if op == "SWAP" and arch.is_comm_edge(*e)
     )
     total_swaps = sum(1 for op, _ in best_gate_execution_log if op == "SWAP")
-    print("comm_swaps", comm_swaps, "total_swaps", total_swaps)
+    if verbose:
+        print("comm_swaps", comm_swaps, "total_swaps", total_swaps)
 
     if verbose:
         best_swap_log = [k for k in best_gate_execution_log if (k[0] == "SWAP")]

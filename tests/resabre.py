@@ -1,23 +1,47 @@
 from mapper.resabre import resabre
+from router.resabre import sabre_swap
 from architecture import SingleCoreDQGraph
 import qiskit.qasm2
 
-qc = qiskit.qasm2.load("./data/example_9q/example_9q.qasm")
+qc = qiskit.qasm2.load("./data/queko/BSS/16QBT_900CYC_QSE_9.qasm")
 
-# 15 qubit device
+# 20 qubit device
 arch = SingleCoreDQGraph([(0,1),(0,2),(0,3),(0,4),
                             (5,6),(6,7),(7,8),(8,9),
-                            (10,11),(11,12),(12,13),(13,14),(14,10),
+                            (10,11),(11,12),(12,13),(13,14),(14,15),(15,16),(16,17),(17,18),(18,19),(19,10),
                             (0,5), (9,10)],
                         comm_edges=[(0,5),(9,10)],
-                        core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]],
-                        name="15-qubit-star-line-ring"
+                        core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14,15,16,17,18,19]],
+                        name="20-qubit-star-line-ring"
                         )
 
 initial_mapping = resabre(arch, qc, verbose=True)
 
-# routed_qc, mapping, log = sabre_swap(arch, qc, initial_mapping)
-# print(arch.distance_matrix)
-# print(routed_qc)
-# print(mapping)
-# print(log)
+routed_qc, mapping, log = sabre_swap(arch, qc, initial_mapping)
+print(mapping)
+
+def validate_physical_log(arch, log):
+    for i, (op, payload) in enumerate(log):
+        if op == "SWAP":
+            u, v = payload
+            if not arch.has_edge(u, v):
+                raise RuntimeError(f"Illegal SWAP at step {i}: ({u},{v}) not an edge")
+        elif op == "GATE":
+            gt, qubits = payload
+            if gt.upper() in ("CX", "CZ", "SWAP"):
+                u, v = qubits
+                if not arch.has_edge(u, v):
+                    raise RuntimeError(f"Illegal {gt} at step {i}: ({u},{v}) not an edge")
+    return True
+
+# usage:
+validate_physical_log(arch, log)
+print("Log is physically valid on arch")
+
+def count_comm_swaps(arch, log):
+    return sum(1 for op, e in log if op == "SWAP" and arch.is_comm_edge(*e))
+
+print("comm swaps =", count_comm_swaps(arch, log))
+print("total swaps =", sum(1 for op, _ in log if op == "SWAP"))
+
+
