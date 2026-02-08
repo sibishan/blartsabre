@@ -228,7 +228,7 @@ def two_tokyo():
     edges += list(tokyo(offset=20).edges())
 
     # single inter-core link (communication edge)
-    edges += [(4, 20)]
+    edges += [(4, 20), (19,25)]
 
     core_node_groups = [
         list(range(0, 20)),   # core 0
@@ -253,7 +253,8 @@ def five_tokyo():
     edges += list(tokyo(offset=80).edges())
 
     # inter-core communication edges
-    edges += [(4, 20), (24, 40), (44, 60), (64, 80), (19, 99)]
+    edges += [(4, 20), (24, 40), (44, 60), (64, 80), (15, 99),
+              (19, 25), (39, 45), (59, 65), (79, 85), (0, 4)]
 
     core_node_groups = [
         list(range(0, 20)),    # core 0
@@ -266,7 +267,7 @@ def five_tokyo():
     arch = DistributedQubitNetworkGraph(
         edges,
         core_node_groups=core_node_groups,
-        name="Four connected IBM Q Tokyo (80 qubits, 4 cores)"
+        name="Five connected IBM Q Tokyo (100 qubits, 5 cores)"
     )
     return arch
 
