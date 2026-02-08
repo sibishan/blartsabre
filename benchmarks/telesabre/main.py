@@ -19,7 +19,7 @@ from router.telesabre import telesabre_swap
 from architecture import two_tokyo, five_tokyo
 from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
-BASE_SEED = 42
+BASE_SEED = 1
 
 CIRCUITS = load_qasm("./data/telesabre", recursive=True)
 
@@ -318,43 +318,43 @@ all_rows_our_telesabre = []
 pairs = list(CIRCUITS.items())
 it = tqdm(pairs, desc="Benchmarking (OG TELESABRE)", unit="run")
 
-for cir_name, cir in it:
-    init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
+# for cir_name, cir in it:
+#     init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
     
-    # OG TeleSABRE
-    arch_og = build_og_arch(num_qubits)
-    try:
-        stats = run_og_telesabre_pass(init_cir, arch_og, seed=BASE_SEED)
-        stats.update({
-            "impl": "og_telesabre",
-            "name": cir_name,
-            "config_name": f"seed{BASE_SEED}",
-            "arch_name": arch_og.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-        })
-        all_rows_og_telesabre.append(stats)
-    except Exception as e:
-        all_rows_og_telesabre.append({
-            "impl": "og_telesabre",
-            "name": cir_name,
-            "config_name": f"seed{BASE_SEED}",
-            "arch_name": arch_og.name,
-            "num_qubits": num_qubits,
-            "init_time": init_time,
-            "og_cx": og_cx,
-            "og_swaps": og_swaps,
-            "og_depth": og_depth,
-            "og_size": og_size,
-            "error": repr(e),
-        })
+#     # OG TeleSABRE
+#     arch_og = build_og_arch(num_qubits)
+#     try:
+#         stats = run_og_telesabre_pass(init_cir, arch_og, seed=BASE_SEED)
+#         stats.update({
+#             "impl": "og_telesabre",
+#             "name": cir_name,
+#             "config_name": f"seed{BASE_SEED}",
+#             "arch_name": arch_og.name,
+#             "num_qubits": num_qubits,
+#             "init_time": init_time,
+#             "og_cx": og_cx,
+#             "og_swaps": og_swaps,
+#             "og_depth": og_depth,
+#             "og_size": og_size,
+#         })
+#         all_rows_og_telesabre.append(stats)
+#     except Exception as e:
+#         all_rows_og_telesabre.append({
+#             "impl": "og_telesabre",
+#             "name": cir_name,
+#             "config_name": f"seed{BASE_SEED}",
+#             "arch_name": arch_og.name,
+#             "num_qubits": num_qubits,
+#             "init_time": init_time,
+#             "og_cx": og_cx,
+#             "og_swaps": og_swaps,
+#             "og_depth": og_depth,
+#             "og_size": og_size,
+#             "error": repr(e),
+#         })
 
-out_og_telesabre = save_stats_json(all_rows_og_telesabre, "./benchmarks/telesabre/results/og_telesabre.json", indent=4)
-print(f"Saved {len(all_rows_og_telesabre)} rows to {out_og_telesabre}")
+# out_og_telesabre = save_stats_json(all_rows_og_telesabre, "./benchmarks/telesabre/results/og_telesabre.json", indent=4)
+# print(f"Saved {len(all_rows_og_telesabre)} rows to {out_og_telesabre}")
 
 
 it = tqdm(pairs, desc="Benchmarking (OG TELESABRE)", unit="run")
