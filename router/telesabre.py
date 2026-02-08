@@ -15,14 +15,9 @@ class DeadlockError(RuntimeError):
 def is_2q(gate):
     return len(gate.qubits) == 2
 
-# module-level counters (or stash on the circuit)
 _TELE_REG_COUNTER = {"teledata": 0, "telegate": 0, "tele": 0}
 
 def _alloc_cbits(qc, n, name="tele"):
-    """
-    Allocate n fresh classical bits by adding a new ClassicalRegister with a UNIQUE name.
-    Returns a list of Clbit objects.
-    """
     if not hasattr(qc, "_tele_reg_counter"):
         qc._tele_reg_counter = {}
 
@@ -32,95 +27,62 @@ def _alloc_cbits(qc, n, name="tele"):
     reg_name = f"{name}_{idx}"
     creg = ClassicalRegister(n, reg_name)
     qc.add_register(creg)
-    return list(creg)  # list of clbits in this register
+    return list(creg)
 
 
 def _apply_if_one(qc, clbit, apply_fn):
-    """
-    apply_fn: function with no args that appends a gate (e.g. lambda: qc.x(q))
-    Uses if_test when available, falls back to c_if if needed.
-    """
     try:
         with qc.if_test((clbit, 1)):
             apply_fn()
     except Exception:
-        # fallback for older Qiskit
         inst = apply_fn()
-        # if apply_fn returns None, we must re-issue the gate in a c_if style
-        # so prefer apply_fn to return the instruction set when using this fallback.
         if inst is None:
             raise RuntimeError("Fallback c_if requires apply_fn to return the instruction handle.")
         inst.c_if(clbit, 1)
 
 def emit_teledata_teleport(qc, p_data_src, p_comm_src, p_comm_dst, *,
                           create_epr=True, log=None):
-    """
-    Teleport the quantum state on p_data_src to p_comm_dst using p_comm_src<->p_comm_dst as comm qubits.
-    This is the standard teledata protocol:
-      - (optional) create Bell pair on (p_comm_src, p_comm_dst)
-      - Bell-measure (p_data_src, p_comm_src)
-      - X/Z corrections on p_comm_dst
-
-    After this, p_data_src and p_comm_src are measured, so the logical state effectively "moves" to p_comm_dst.
-    """
+    
     c_data, c_comm = _alloc_cbits(qc, 2, name="teledata")
 
     if log is not None:
         log.append(("TELEDATA", (p_data_src, p_comm_src, p_comm_dst)))
 
-    # 1) EPR pair between comm qubits (if your backend assumes pre-shared EPR, set create_epr=False)
     if create_epr:
         qc.h(p_comm_src)
         qc.cx(p_comm_src, p_comm_dst)
 
-    # 2) Bell measurement on (data_src, comm_src)
     qc.cx(p_data_src, p_comm_src)
     qc.h(p_data_src)
 
     qc.measure(p_comm_src, c_comm)
     qc.measure(p_data_src, c_data)
 
-    # 3) Classical corrections on destination comm qubit
-    # Standard teleport: if comm measurement == 1 -> X, if data measurement == 1 -> Z
     _apply_if_one(qc, c_comm, lambda: qc.x(p_comm_dst))
     _apply_if_one(qc, c_data, lambda: qc.z(p_comm_dst))
 
 
 def emit_telegate_cx(qc, p_data_ctrl, p_comm_ctrl, p_comm_tgt, p_data_tgt, *,
                      create_epr=True, log=None):
-    """
-    Remote CX (control=data_ctrl, target=data_tgt) using communication qubits p_comm_ctrl and p_comm_tgt.
-
-    Matches the paper description:
-      (i) local CX between each data qubit and its comm qubit
-      (ii) Hadamard on target-side comm qubit
-      (iii) each core applies a conditional correction on its data qubit based on the *remote* comm measurement
-    """
+    
     c_ctrl_comm, c_tgt_comm = _alloc_cbits(qc, 2, name="telegate")
 
     if log is not None:
         log.append(("TELEGATE_CX", (p_data_ctrl, p_comm_ctrl, p_comm_tgt, p_data_tgt)))
 
-    # 0) EPR on comm qubits (if not assumed pre-shared)
     if create_epr:
         qc.h(p_comm_ctrl)
         qc.cx(p_comm_ctrl, p_comm_tgt)
 
-    # (i) Two local CX gates
-    # control core: CX(data_ctrl -> comm_ctrl)
     qc.cx(p_data_ctrl, p_comm_ctrl)
-    # target core: CX(comm_tgt -> data_tgt)
+
     qc.cx(p_comm_tgt, p_data_tgt)
 
-    # (ii) H on target comm qubit, then measure comm qubits
     qc.h(p_comm_tgt)
     qc.measure(p_comm_ctrl, c_ctrl_comm)
     qc.measure(p_comm_tgt, c_tgt_comm)
 
-    # (iii) Remote-conditioned corrections on data qubits
-    # If target comm measurement == 1 -> Z on control data
     _apply_if_one(qc, c_tgt_comm, lambda: qc.z(p_data_ctrl))
-    # If control comm measurement == 1 -> X on target data
     _apply_if_one(qc, c_ctrl_comm, lambda: qc.x(p_data_tgt))
 
 
@@ -197,12 +159,7 @@ def _emit_swap_physical(routed_qc, mapping: Mapping, p1: int, p2: int, log):
 
 
 def apply_teleport_op(arch, routed_qc, mapping: Mapping, op, log, *, create_epr=True):
-    """
-    op = (p_data_src, p_comm_src, p_comm_dst)
 
-    Teledata consumes measurements on (p_data_src, p_comm_src), state ends at p_comm_dst.
-    Mapping update: logical qubit that was at p_data_src now lives at p_comm_dst.
-    """
     if len(op) != 3:
         raise ValueError(f"Teleport op must be len 3, got {op}")
 
@@ -212,12 +169,9 @@ def apply_teleport_op(arch, routed_qc, mapping: Mapping, op, log, *, create_epr=
     if p_comm_src not in free or p_comm_dst not in free:
         raise RuntimeError(f"Teleport requires comm qubits free, op={op}, free={sorted(free)}")
 
-    # Which logical is currently on p_data_src?
-    # Mapping should support p_to_l, otherwise adapt to your Mapping API.
     if hasattr(mapping, "p_to_l"):
         lq = mapping.p_to_l(p_data_src)
     else:
-        # fallback: try internal bidict-style inv map if you have it
         inv = getattr(mapping, "inv", None)
         lq = inv.get(p_data_src, None) if inv is not None else None
 
@@ -233,29 +187,20 @@ def apply_teleport_op(arch, routed_qc, mapping: Mapping, op, log, *, create_epr=
         log=log,
     )
 
-    # Update mapping: move lq from p_data_src -> p_comm_dst, free p_data_src
-    # Do this explicitly to avoid any accidental swaps with free nodes.
     if hasattr(mapping, "move_l_qubit"):
-        mapping.move_l_qubit(lq, p_comm_dst)   # preferred if you have it
+        mapping.move_l_qubit(lq, p_comm_dst)   
     else:
-        # generic: remove then set
         if hasattr(mapping, "remove_l_qubit"):
             mapping.remove_l_qubit(lq)
             mapping.set_l_qubit(lq, p_comm_dst)
         else:
-            # last resort: use existing swap_p_qubits, requires p_comm_dst free (we checked)
             mapping.swap_p_qubits(p_data_src, p_comm_dst)
 
     log.append(("TELEPORT", op))
 
 
 def apply_telegate_op(arch, routed_qc, mapping: Mapping, op, log, *, create_epr=True):
-    """
-    op = (p_data_ctrl, p_comm_ctrl, p_comm_tgt, p_data_tgt)
 
-    Remote CX between data qubits, uses comm qubits as ancilla resources.
-    No mapping change (data qubits remain where they are), comm qubits are measured but were free.
-    """
     if len(op) != 4:
         raise ValueError(f"Telegate op must be len 4, got {op}")
 
@@ -340,10 +285,8 @@ def telesabre_swap(
             reset_timer = RESET_TIMER_START
 
         else:
-            # --- build candidates using your existing functions (must be in scope)
             front_gates = [g for g in dag.get_gates_from_nodes(front) if is_2q(g)]
 
-            # gate_paths is required by your candidate generators
             gate_paths = get_gate_paths(arch, mapping, front_gates, True)
 
             swap_cands = get_SWAP_candidates(arch, mapping, front_gates, gate_paths, True)
@@ -353,7 +296,6 @@ def telesabre_swap(
             if not op_cands:
                 raise RuntimeError("No candidates found, check connectivity, free qubits, and candidate generation")
 
-            # score using your TeleSABRE mapping_energy (must be in scope)
             scores = {}
             for i, op in enumerate(op_cands):
                 scores[i] = mapping_energy(arch, dag, mapping, op, decay_array, True)
@@ -361,11 +303,9 @@ def telesabre_swap(
             best_i = min(scores, key=scores.get)
             best_op = op_cands[best_i]
 
-            # keep arch state consistent if you use telegate bookkeeping
             if hasattr(arch, "clear_active_telegate_qubits"):
                 arch.clear_active_telegate_qubits()
 
-            # --- EMIT + APPLY
             if len(best_op) == 2:
                 p1, p2 = best_op
                 _emit_swap_physical(routed_qc, mapping, p1, p2, log)
@@ -376,7 +316,6 @@ def telesabre_swap(
             elif len(best_op) == 4:
                 apply_telegate_op(arch, routed_qc, mapping, best_op, log, create_epr=create_epr)
 
-                # if your arch uses active telegate qubits to bias later steps, keep it in sync
                 if hasattr(arch, "register_active_telegate_qubits"):
                     p_data_ctrl, _, _, p_data_tgt = best_op
                     arch.register_active_telegate_qubits(p_data_ctrl, p_data_tgt)
@@ -384,7 +323,6 @@ def telesabre_swap(
             else:
                 raise RuntimeError(f"Unknown op length {len(best_op)} for op={best_op}")
 
-            # decay update (same style as sabre_swap)
             decay_array[best_op[0]] = 1.0 + DECAY_VALUE
             decay_array[best_op[-1]] = 1.0 + DECAY_VALUE
 
