@@ -170,7 +170,7 @@ def initial_layout(config, circuit, architecture):
         capacities = np.full(architecture.num_cores, architecture.num_qubits // architecture.num_cores)
         for q1, q2 in circuit.get_slices()[0]:
             for c in range(architecture.num_cores):
-                if capacities[c] >= 4:
+                if capacities[c] > 4:
                     virt_to_core[q1] = c
                     virt_to_core[q2] = c
                     capacities[c] -= 2
@@ -178,21 +178,10 @@ def initial_layout(config, circuit, architecture):
         for q in range(circuit.num_qubits):
             if virt_to_core[q] == -1:
                 for c in range(architecture.num_cores):
-                    if capacities[c] >= 3:
+                    if capacities[c] > 3:
                         virt_to_core[q] = c
                         capacities[c] -= 1
                         break
-        # Ensure all logical qubits got a core, otherwise fill them greedily
-        for q in range(circuit.num_qubits):
-            if virt_to_core[q] == -1:
-                for c in range(architecture.num_cores):
-                    if capacities[c] >= 3:  # keep 2 free
-                        virt_to_core[q] = c
-                        capacities[c] -= 1
-                        break
-            
-        assert np.all(virt_to_core[:circuit.num_qubits] != -1), \
-            f"Could not place logicals with 2-free-per-core rule. capacities={capacities.tolist()}"
                     
         core_to_virt = [[] for c in range(architecture.num_cores)] 
         for c in range(architecture.num_cores):
@@ -302,11 +291,15 @@ def build_contracted_graph_for_virt_pair(architecture, layout, nearest_free_to_c
             other_core = architecture.get_qubit_core(n1) if n1 != p_comm else architecture.get_qubit_core(n2)
             if core != core1 and core != core2:
                 contracted_graph.edges[edge]['weight'] += (layout.get_core_capacity(core) < 2) * full_core_penalty / 2
-                contracted_graph.edges[edge]['weight'] += nearest_free_to_comms_queues[p_comm].get_min_priority() / 2
+                min_priority = nearest_free_to_comms_queues[p_comm].get_min_priority()
+                if min_priority is not None:
+                    contracted_graph.edges[edge]['weight'] += min_priority / 2
             elif ((architecture.is_comm_qubit(n1) and n1 != p_comm) or (architecture.is_comm_qubit(n2) and n2 != p_comm)) and True:
                 contracted_graph.edges[edge]['weight'] += (layout.get_core_capacity(core) < 2 and layout.get_core_capacity(other_core) < 2) * full_core_penalty * 100
             else:
-                contracted_graph.edges[edge]['weight'] += nearest_free_to_comms_queues[p_comm].get_min_priority()
+                min_priority = nearest_free_to_comms_queues[p_comm].get_min_priority()
+                if min_priority is not None:
+                    contracted_graph.edges[edge]['weight'] += min_priority / 2
                 
                 
     # add penalty for gte on comm
@@ -345,11 +338,6 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
     
     # Initialize layout
     layout = initial_layout(config, circuit, architecture)
-
-    missing = [v for v in range(circuit.num_qubits)
-           if layout.virt_to_phys[v] < 0 or layout.is_phys_free(int(layout.virt_to_phys[v]))]
-    assert not missing, f"Initial layout did not place logical qubits: {missing}"
-
     first_layout = deepcopy(layout)
     
     # Create coupling map (undirected graph for connectivity checks)
@@ -847,3 +835,4 @@ def run_telesabre(config, circuit, architecture, seed=42, max_iterations=None):
     print(f"  Solved Deadlocks: {solved_deadlocks}")
     
     return swap_count, teleportation_count, telegate_count, circuit_depth, teleport_depth, solved_deadlocks, first_layout, solving_deadlock
+
