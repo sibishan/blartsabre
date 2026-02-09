@@ -10,7 +10,7 @@ class QubitNetworkGraph(nx.Graph):
         super(QubitNetworkGraph, self).__init__(*args, **kwargs)
         nx.set_edge_attributes(self, 'data', 'type')
         self.distance_matrix = nx.floyd_warshall(self, weight="weight")
-        self.pos = nx.spring_layout(self, iterations=500)
+        self.pos = nx.spring_layout(self, iterations=200)
 
 
     def get_distance_matrix(self):
