@@ -347,22 +347,6 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
                 operation_candidate = operation_candidates[operation_idx]
                 score[operation_idx] = mapping_energy(arch, circuit_dag, mapping, operation_candidate, decay_array, is_forward)
 
-            # if reset_timer < 5:
-            #     print([(operation_candidates[i], score[i]) for i in range(len(operation_candidates))])
-
-            #     temp_mapping = mapping.copy()
-            #     # update_mapping_operation(temp_mapping,(0,3),arch)
-            #     print("ahoy")
-            #     print(circuit_dag.get_gate_count())
-            #     contracto = DQC_contracted_graph(arch,temp_mapping,*front_layer_gates[0].qubits,is_forward)
-
-            #     pos = nx.spring_layout(contracto, k=1)
-            #     nx.draw(contracto, pos)
-            #     nx.draw_networkx_labels(contracto, pos)
-            #     # nx.draw_networkx_edge_labels(contracto, pos)
-
-            #     arch.draw_mapping(temp_mapping)
-
             best_operation_idx = min(score, key=score.get)
             best_operation = operation_candidates[best_operation_idx]
 
@@ -385,18 +369,10 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
                     decay_array[i] = 1
                     decay_timer[i] = 0
 
-            # if reset_timer < 5:
-            #     print(best_operation)
-            #     print([gate for gate in front_layer_gates])
-            #     print([gate for gate in circuit_dag.get_gates_from_nodes(circuit_dag.get_extended_layer())])
-            #     print(is_forward)
-            #     arch.draw_mapping(mapping)
-        
         front_layer = circuit_dag.get_front_layer()
         reset_timer -= 1
         if reset_timer < 0:
             raise DeadlockError("reset_timer expired in sabre_pass")
-        # print(circuit_dag.get_gate_count())
 
     return mapping, gate_execution_log
 
