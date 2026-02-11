@@ -26,49 +26,6 @@ class QubitNetworkGraph(nx.Graph):
     def draw(self):
         nx.draw(self, pos = self.pos)
         plt.show()
-
-class SingleCoreDQGraph(QubitNetworkGraph):
-    def __init__(self, *args, comm_edges=None, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.comm_edges = list(comm_edges or [])
-        self.comm_edge_set = {tuple(sorted(e)) for e in self.comm_edges}
-        self.data_edges = [e for e in self.edges() if tuple(sorted(e)) not in self.comm_edge_set]
-
-        for u, v in self.edges():
-            self[u][v]["weight"] = 1.0
-
-        for u, v in self.comm_edges:
-            if self.has_edge(u, v):
-                self[u][v]["weight"] = COMM_EDGE_WEIGHT
-
-        self.distance_matrix = dict(nx.floyd_warshall(self, weight="weight"))
-
-    def is_comm_edge(self, u, v):
-        return tuple(sorted((u, v))) in self.comm_edge_set
-
-    
-    def draw(self):
-        """Draw graph with communication edges highlighted"""
-        
-        # Identify communication qubits
-        comm_subgraph = nx.Graph(self.comm_edges)
-        comm_qubits = list(comm_subgraph.nodes())
-        non_comm_qubits = [n for n in self.nodes() if n not in comm_qubits]
-        
-        # Draw nodes
-        nx.draw_networkx_nodes(self, self.pos, nodelist=comm_qubits, node_shape="h", 
-                              linewidths=1, edgecolors="black", node_color="white")
-        nx.draw_networkx_nodes(self, self.pos, nodelist=non_comm_qubits, node_shape="o", 
-                              linewidths=1, edgecolors="black", node_color="white")
-        
-        # Draw edges
-        nx.draw_networkx_edges(self, self.pos, edgelist=self.comm_edges, edge_color="red")
-        nx.draw_networkx_edges(self, self.pos, edgelist=self.data_edges, edge_color="black")
-        
-        # Draw labels
-        nx.draw_networkx_labels(self, self.pos)
-        plt.show()
         
 class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
@@ -202,6 +159,8 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
     def clear_active_telegate_qubits(self):
         self.active_telegate_nodes = ()
 
+
+
 def tokyo(offset=0):
     edges = []
 
@@ -220,7 +179,7 @@ def tokyo(offset=0):
 
     return QubitNetworkGraph(edges, name=f"IBM Q Tokyo (20 qubits, offset {offset})")
 
-@staticmethod
+
 def two_tokyo():
     # base edges for the two 20-qubit tokyo graphs
     edges = []
@@ -242,7 +201,6 @@ def two_tokyo():
     )
 
     return arch
-
 
 def five_tokyo():
     edges = []
@@ -271,22 +229,10 @@ def five_tokyo():
     )
     return arch
 
-
-@staticmethod
-def twenty_qubit_star_line_ring():
-    return SingleCoreDQGraph([(0,1),(0,2),(0,3),(0,4),
-                            (5,6),(6,7),(7,8),(8,9),
-                            (10,11),(11,12),(12,13),(13,14),(14,15),(15,16),(16,17),(17,18),(18,19),(19,10),
-                            (0,5), (9,10)],
-                        comm_edges=[(0,5),(9,10)],
-                        core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14,15,16,17,18,19]],
-                        name="20-qubit-star-line-ring"
-                        )
-
-@staticmethod
-def sycamore():
+def sycamore(offset: int = 0):
     edges = set()
 
+    # start from the 54-qubit Sycamore pattern (0..53), then remove node 3
     nodes = list(range(54))
     I = (
         list(range(6, 12)) +
@@ -296,6 +242,7 @@ def sycamore():
     )
     Iset = set(I)
 
+    # build edges using the same rule as your nx version
     for i in I:
         for j in nodes:
             if j in Iset:
@@ -304,7 +251,17 @@ def sycamore():
                 a, b = (i, j) if i < j else (j, i)
                 edges.add((a, b))
 
-    return QubitNetworkGraph(sorted(edges), name="Google Sycamore (54 qubits)")
+    # remove node 3 and relabel nodes >3 down by 1 to get 53 qubits (0..52)
+    rem = 3
+    relabel = {n: (n if n < rem else n - 1) for n in nodes if n != rem}
+
+    out_edges = []
+    for u, v in edges:
+        if u == rem or v == rem:
+            continue
+        out_edges.append((relabel[u] + offset, relabel[v] + offset))
+
+    return QubitNetworkGraph(out_edges, name=f"Sycamore-53 (offset {offset})")
 
 
 def multi_core_grid(core_height, core_width, core_rows, core_cols):
@@ -346,8 +303,3 @@ def multi_core_grid(core_height, core_width, core_rows, core_cols):
 
     return DistributedQubitNetworkGraph(edges, core_node_groups=core_node_groups)
 
-if __name__ == '__main__':
-
-    distributed_graph = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),(1,6),(3,4),(1,4),(3,6)],
-                                                     core_node_groups=[[0,1,2,3],[4,5,6,7]])
-    distributed_graph.draw()
