@@ -457,7 +457,6 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
-    success = 0
 
     for iteration in range(num_iterations):
 
@@ -482,10 +481,6 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(f"Iteration {iteration} ran successfully")
-            success += 1
-
-            if success == 5:
-                break
 
         except DeadlockError as e:
             deadlocks += 1

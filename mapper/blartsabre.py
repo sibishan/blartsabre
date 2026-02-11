@@ -6,16 +6,6 @@ from dag import QuantumDAG
 from blart_architecture import BLARTNetworkGraph
 from copy import deepcopy
 
-from qiskit.transpiler import PassManager
-from qiskit.transpiler.passes import (
-    RemoveDiagonalGatesBeforeMeasure,
-    Unroll3qOrMore,
-    RemoveResetInZeroState,
-    OptimizeSwapBeforeMeasure,
-    RemoveFinalMeasurements,
-    RemoveBarriers
-)
-
 EXTENDED_LAYER_SIZE = 5
 EXTENDED_HEURISTIC_WEIGHT = 0.5
 DECAY_VALUE = 0.001

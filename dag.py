@@ -7,8 +7,6 @@ from copy import deepcopy
 @dataclass
 class GateNode:
     """
-    Represents a quantum gate in the circuit DAG.
-    
     Attributes:
         gate_id: Unique identifier for the gate
         gate_type: Type of gate (e.g., 'H', 'CNOT', 'RZ', 'MEASURE')
@@ -30,26 +28,14 @@ class GateNode:
 
 
 class QuantumDAG:
-    """Directed Acyclic Graph representation for quantum circuits with DQC support."""
     
     def __init__(self, num_qubits: int = 0, num_clbits: int = 0):
-        """
-        Initialize a quantum circuit DAG.
-        
-        Args:
-            num_qubits: Total number of qubits in the circuit
-        """
         self.dag = nx.DiGraph()
         self.num_qubits = num_qubits
         self.num_clbits = num_clbits
         self.gates: Dict[str, GateNode] = {}
         self._gate_counter = 0
-        
-        # Track the last gate on each qubit (for automatic dependency addition)
         self._last_gate_on_qubit: Dict[int, str] = {}
-        
-        # Track qubit-to-processor mapping (for DQC)
-        self.qubit_to_processor: Dict[int, str] = {}
 
     def __deepcopy__(self, memo):
         new_dag = QuantumDAG()
@@ -59,7 +45,6 @@ class QuantumDAG:
         new_dag.gates = deepcopy(self.gates)
         new_dag._gate_counter = deepcopy(self._gate_counter)
         new_dag._last_gate_on_qubit = deepcopy(self._last_gate_on_qubit)
-        new_dag.qubit_to_processor = deepcopy(self.qubit_to_processor)
         return new_dag
 
     def add_gate(self, 
@@ -69,24 +54,11 @@ class QuantumDAG:
                  parameters: Optional[Dict[str, float]] = None,
                  auto_dependencies: bool = True,
                  clbits = None) -> str:
-        """
-        Add a quantum gate to the DAG.
         
-        Args:
-            gate_type: Type of quantum gate
-            qubits: List of qubit indices
-            gate_id: Optional custom gate ID (auto-generated if None)
-            parameters: Optional gate parameters
-            auto_dependencies: If True, automatically add dependencies based on qubit usage
-            
-        Returns:
-            gate_id: The ID of the added gate
-        """
         if gate_id is None:
             gate_id = f"g{self._gate_counter}"
             self._gate_counter += 1
             
-        # Create gate node
         gate_node = GateNode(
             gate_id=gate_id,
             gate_type=gate_type,
@@ -98,7 +70,6 @@ class QuantumDAG:
         self.gates[gate_id] = gate_node
         self.dag.add_node(gate_id, **gate_node.__dict__)
         
-        # Automatically add dependencies based on qubit usage
         if auto_dependencies:
             for qubit in qubits:
                 if qubit in self._last_gate_on_qubit:
@@ -109,13 +80,7 @@ class QuantumDAG:
         return gate_id
     
     def add_dependency(self, from_gate: str, to_gate: str):
-        """
-        Add a dependency edge between two gates.
-        
-        Args:
-            from_gate: Source gate ID (must execute before to_gate)
-            to_gate: Target gate ID (must execute after from_gate)
-        """
+        """Add a dependency edge between two gates."""
         if from_gate not in self.gates or to_gate not in self.gates:
             raise ValueError("Both gates must exist in the DAG")
         
@@ -133,12 +98,7 @@ class QuantumDAG:
             del self.gates[gate_id]
         
     def topological_sort(self) -> List[str]:
-        """
-        Return gates in topological order (respecting dependencies).
-        
-        Returns:
-            List of gate IDs in topological order
-        """
+        """Return gates in topological order (respecting dependencies)."""
         try:
             return list(nx.topological_sort(self.dag))
         except nx.NetworkXError:
@@ -167,12 +127,7 @@ class QuantumDAG:
         return layers
     
     def get_depth(self) -> int:
-        """
-        Get the depth (critical path length) of the circuit.
-        
-        Returns:
-            Maximum layer number + 1
-        """
+        """Get the depth (critical path length) of the circuit."""
         if not self.gates:
             return 0
         layers = self.compute_layers()

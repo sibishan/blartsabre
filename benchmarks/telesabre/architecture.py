@@ -202,7 +202,8 @@ def TWO_TOKYO():
 
     # inter-core links
     inter_core_edges = [
-        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
+        Edge(4, 20),
+        Edge(19, 35)
     ]
 
     arch = Architecture(
@@ -216,22 +217,20 @@ def TWO_TOKYO():
     return arch
 
 @staticmethod
-def FIVE_TOKYO():
-    num_qubits = 100
-    qubit_to_core = [0] * 20 + [1] * 20 + [2] * 20 + [3] * 20 + [4] * 20
+def FOUR_TOKYO():
+    num_qubits = 80
+    qubit_to_core = [0] * 20 + [1] * 20 + [2] * 20 + [3] * 20
 
-    # core 0: tokyo on qubits 0..19
-    # core 1: tokyo on qubits 20..39
-    # core 1: tokyo on qubits 40..59
-    intra_core_edges = tokyo_edges(0) + tokyo_edges(20) + tokyo_edges(40) + tokyo_edges(60) + tokyo_edges(80)
+    intra_core_edges = tokyo_edges(0) + tokyo_edges(20) + tokyo_edges(40) + tokyo_edges(60)
 
     # inter-core links
     inter_core_edges = [
-        Edge(4, 20),    # core0 qubit 4 <-> core1 qubit 20,
-        Edge(24, 40),    # core1 qubit 24 <-> core2 qubit 40,
-        Edge(44, 60),   # core2 qubit 44 <-> core3 qubit 60,
-        Edge(64, 80),    # core3 qubit 64 <-> core4 qubit 80,
-        Edge(19, 99)    # core0 qubit 19 <-> core4 qubit 99,
+        Edge(4, 20),
+        Edge(19, 35),
+        Edge(24, 40),
+        Edge(39, 55),
+        Edge(44, 60),
+        Edge(59, 75)
     ]
 
     arch = Architecture(
@@ -239,7 +238,7 @@ def FIVE_TOKYO():
         qubit_to_core=qubit_to_core,
         intra_core_edges=intra_core_edges,
         inter_core_edges=inter_core_edges,
-        name="five-tokyo"
+        name="four-tokyo"
     )
 
     return arch

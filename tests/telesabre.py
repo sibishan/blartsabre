@@ -1,9 +1,8 @@
 from mapper.telesabre import telesabre_layout
-from router.telesabre import telesabre_swap
-from architecture import DistributedQubitNetworkGraph, multi_core_grid, two_tokyo, five_tokyo
+from architecture import DistributedQubitNetworkGraph, multi_core_grid, two_tokyo, four_tokyo
 from qiskit import qasm2
 
-qc = qasm2.load("./data/quekno/20Q_depth_Tokyo/20QBT_depth_Tokyo_large_opt_4_1.5_no.0.qasm")
+qc = qasm2.load("./data/quekno/53Q_depth_Rochester/53QBT_depth_Rochester_large_opt_1_1.5_no.1.qasm")
 
 # arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
 #                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),
@@ -28,7 +27,7 @@ qc = qasm2.load("./data/quekno/20Q_depth_Tokyo/20QBT_depth_Tokyo_large_opt_4_1.5
 #                                     name="18-qubit-star-line-ring"
 #                                     )
 
-arch = multi_core_grid(3,3,2,2)
+arch = four_tokyo() # 40 qubits
 arch.draw()
 
 initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=3)

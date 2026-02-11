@@ -119,9 +119,6 @@ def sabre_layout(arch, quantum_circuit, verbose = False, return_log = False, see
         random.seed(int(seed))
 
     if isinstance(quantum_circuit, QuantumCircuit):
-        quantum_circuit = quantum_circuit.decompose()
-        if verbose:
-            print(quantum_circuit)
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(arch)
 
