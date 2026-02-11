@@ -58,6 +58,7 @@ def run_og_telesabre_pass(qc, arch, seed=BASE_SEED):
     mapping_time = map_end - map_start
 
     return {
+        "iterations": 1,
         "seed": seed,
         "mapped_swaps": swap_count,
         "mapped_teleports": teleportation_count,
@@ -78,6 +79,7 @@ def run_our_telesabre_pass(qc, arch, seed=None):
     metrics = stats_from_our_telesabre_log(gate_log, len(arch))
     
     return {
+    "iterations": 10,
     "seed": seed,
     **metrics,
     "mapping_time": mapping_time,
