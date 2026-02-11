@@ -461,14 +461,14 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
                 continue
 
             final_mapping, _ = sabre_pass(arch, initial_mapping, circuit_dag, True)
-            initial_mapping, _ = sabre_pass(arch, final_mapping, reverse_circuit_dag, False)
+            initial_mapping, _ = sabre_pass(arch, final_mapping, reverse_circuit_dag, True)
             _, gate_execution_log = sabre_pass(arch, initial_mapping, circuit_dag, True)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(f"Iteration {iteration} ran successfully")
             success += 1
 
-            if success == 3:
+            if success == 5:
                 break
 
         except DeadlockError as e:
