@@ -326,16 +326,23 @@ def multi_core_grid(core_height, core_width, core_rows, core_cols):
     
     for core_row in range(core_rows):
         for core_col in range(core_cols - 1):
-            left_parity = (0 if core_col/(core_cols-1) < 0.5 else 1) if core_row/(core_rows-1) == 0.5 else 0 if core_row/(core_rows-1) < 0.5 else 1
-            right_parity = (0 if (core_col+1)/(core_cols-1) <= 0.5 else 1) if core_row/(core_rows-1) == 0.5 else 0 if core_row/(core_rows-1) < 0.5 else 1
-            edges.append((core_row * core_area * core_cols + core_col * core_area + (int((core_height - 1)/2) + left_parity) * core_width + core_width - 1,
-                          core_row * core_area * core_cols + (core_col + 1) * core_area + (int((core_height - 1)/2) + right_parity) * core_width))
+            left_parity =  0 if core_row/(core_rows-1) < 0.5 or core_height%2==1 else -1
+            right_parity = 0 if core_row/(core_rows-1) < 0.5 or core_height%2==1 else -1
+            left_core  = core_row*core_area*core_cols +  core_col     *core_area
+            right_core = core_row*core_area*core_cols + (core_col + 1)*core_area
+            left_node  = left_core  + (int((core_height - 1)/2) + left_parity) * core_width + core_width - 1
+            right_node = right_core + (int((core_height - 1)/2) + right_parity) * core_width
+            edges.append((left_node, right_node))
     for core_col in range(core_cols):
         for core_row in range(core_rows - 1):
-            up_parity = (0 if core_row/(core_rows-1) < 0.5 else 1) if core_col/(core_cols-1) == 0.5 else 0 if core_col/core_cols < 0.5 else 1
-            down_parity = (0 if (core_row+1)/(core_rows-1) <= 0.5 else 1) if core_col/(core_cols-1) == 0.5 else 0 if core_col/core_cols < 0.5 else 1
-            edges.append((core_row * core_area * core_cols + core_col * core_area + (core_height - 1) * core_width + (int((core_width - 1)/2) + up_parity),
-                          (core_row + 1) * core_area * core_cols + core_col * core_area + (int((core_width - 1)/2) + down_parity)))
+            up_parity =   0 if core_col/core_cols < 0.5 or core_width%2==1 else -1
+            down_parity = 0 if core_col/core_cols < 0.5 or core_width%2==1 else -1
+            up_core   =  core_row     *core_area*core_cols + core_col*core_area
+            down_core = (core_row + 1)*core_area*core_cols + core_col*core_area
+            up_node   = up_core   + (int((core_width - 1)/2) + up_parity) + (core_height - 1) * core_width
+            down_node = down_core + (int((core_width - 1)/2) + down_parity)
+            edges.append((up_node, down_node))
+
 
     return DistributedQubitNetworkGraph(edges, core_node_groups=core_node_groups)
 
