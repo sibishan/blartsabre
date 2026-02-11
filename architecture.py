@@ -220,26 +220,56 @@ def tokyo(offset=0):
 
     return QubitNetworkGraph(edges, name=f"IBM Q Tokyo (20 qubits, offset {offset})")
 
-
+@staticmethod
 def two_tokyo():
+    # base edges for the two 20-qubit tokyo graphs
     edges = []
     edges += list(tokyo(offset=0).edges())
     edges += list(tokyo(offset=20).edges())
-    edges += [(4, 20)]
 
-    comm_edges = [(4, 20)]
-    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Two connected IBM Q Tokyo (40 qubits)")
+    # single inter-core link (communication edge)
+    edges += [(4, 20), (19,25)]
+
+    core_node_groups = [
+        list(range(0, 20)),   # core 0
+        list(range(20, 40)),  # core 1
+    ]
+
+    arch = DistributedQubitNetworkGraph(
+        edges,
+        core_node_groups=core_node_groups,
+        name="Two connected IBM Q Tokyo (40 qubits, 2 cores)"
+    )
+
+    return arch
 
 
-def three_tokyo():
+def five_tokyo():
     edges = []
     edges += list(tokyo(offset=0).edges())
     edges += list(tokyo(offset=20).edges())
     edges += list(tokyo(offset=40).edges())
-    edges += [(4, 20), (24, 40)]
+    edges += list(tokyo(offset=60).edges())
+    edges += list(tokyo(offset=80).edges())
 
-    comm_edges = [(4, 20), (24, 40)]
-    return SingleCoreDQGraph(edges, comm_edges=comm_edges, name="Three connected IBM Q Tokyo (60 qubits)")
+    # inter-core communication edges
+    edges += [(4, 20), (24, 40), (44, 60), (64, 80), (15, 99),
+              (19, 25), (39, 45), (59, 65), (79, 85), (0, 4)]
+
+    core_node_groups = [
+        list(range(0, 20)),    # core 0
+        list(range(20, 40)),   # core 1
+        list(range(40, 60)),   # core 2
+        list(range(60, 80)),   # core 3
+        list(range(80, 100)),  # core 4
+    ]
+
+    arch = DistributedQubitNetworkGraph(
+        edges,
+        core_node_groups=core_node_groups,
+        name="Five connected IBM Q Tokyo (100 qubits, 5 cores)"
+    )
+    return arch
 
 
 @staticmethod

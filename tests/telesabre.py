@@ -1,8 +1,9 @@
-from mapper.telesabre import telesabre
-from architecture import DistributedQubitNetworkGraph, multi_core_grid
+from mapper.telesabre import telesabre_layout
+from router.telesabre import telesabre_swap
+from architecture import DistributedQubitNetworkGraph, multi_core_grid, two_tokyo, five_tokyo
 from qiskit import qasm2
 
-qc = qasm2.load("./data/qasmbench/medium/bigadder_n18/bigadder_n18.qasm")
+# qc = qasm2.load("./data/telesabre/qasm_25/ae_nativegates_ibm_qiskit_opt3_25.qasm")
 
 # arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
 #                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),
@@ -10,30 +11,28 @@ qc = qasm2.load("./data/qasmbench/medium/bigadder_n18/bigadder_n18.qasm")
 #                                                      core_node_groups=[[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15]])
 
 # 15 qubit device
-arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),
-                                     (5,6),(6,7),(7,8),(8,9),
-                                     (10,11),(11,12),(12,13),(13,14),(14,10),
-                                     (0,5), (9,10)],
-                                    core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]],
-                                    name="15-qubit-star-line-ring"
-                                    )
+# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),
+#                                      (5,6),(6,7),(7,8),(8,9),
+#                                      (10,11),(11,12),(12,13),(13,14),(14,10),
+#                                      (0,5), (9,10)],
+#                                     core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]],
+#                                     name="15-qubit-star-line-ring"
+#                                     )
 
 # 18 qubit device
-arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
-                                     (6,7),(7,8),(8,9),(9,10),(10,11),
-                                     (11,13),(13,14),(14,15),(15,16),(16,17),(17,12),
-                                     (0,6), (11,12)],
-                                    core_node_groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17]],
-                                    name="18-qubit-star-line-ring"
-                                    )
+# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
+#                                      (6,7),(7,8),(8,9),(9,10),(10,11),
+#                                      (11,13),(13,14),(14,15),(15,16),(16,17),(17,12),
+#                                      (0,6), (11,12)],
+#                                     core_node_groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17]],
+#                                     name="18-qubit-star-line-ring"
+#                                     )
 
-arch = multi_core_grid(3,3,2,2)
-
+arch = five_tokyo()
 arch.draw()
 
-initial_mapping = telesabre(arch, qc, verbose=True)
-
-print(initial_mapping)
+# initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1)
+# routed_qc, mapping, log = telesabre_swap(arch, qc, initial_mapping)
 
 
 

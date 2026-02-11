@@ -6,15 +6,6 @@ from dag import QuantumDAG
 import random
 from copy import deepcopy
 import networkx as nx
-from qiskit.transpiler import PassManager
-from qiskit.transpiler.passes import (
-    RemoveDiagonalGatesBeforeMeasure,
-    Unroll3qOrMore,
-    RemoveResetInZeroState,
-    OptimizeSwapBeforeMeasure,
-    RemoveFinalMeasurements,
-    RemoveBarriers
-)
 
 EXTENDED_LAYER_SIZE = 10
 EXTENDED_HEURISTIC_WEIGHT = 0.25
@@ -23,9 +14,9 @@ FULL_CORE_PENALTY = 10
 TELE_BONUS = -5
 CONTRACTED_GRAPH_FREE_NODE_WEIGHT = 2
 
-RESET_TIMER_START = 50
+RESET_TIMER_START = 200
 
-NUM_ITERATIONS = 10
+NUM_ITERATIONS = 20
 
 class DeadlockError(RuntimeError): pass
 
@@ -410,7 +401,7 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
     return mapping, gate_execution_log
 
 
-def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = False, return_log = False):
+def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = False, return_log = False, seed = None):
     """
     return values:
         mapping: Mapping of logical qubits to physical qubits
@@ -420,20 +411,10 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
     circuit_dag = None
     reverse_circuit_dag = None
 
-    if isinstance(quantum_circuit, QuantumCircuit):
-        pm = PassManager()
-        pm.append([
-            RemoveBarriers(),
-            OptimizeSwapBeforeMeasure(),
-            RemoveDiagonalGatesBeforeMeasure(),
-            RemoveFinalMeasurements(),
-            Unroll3qOrMore(),
-            RemoveResetInZeroState(),
-        ])
-        quantum_circuit = pm.run(quantum_circuit)
+    if seed is not None:
+        random.seed(int(seed))
 
-        if verbose:
-            print(quantum_circuit)
+    if isinstance(quantum_circuit, QuantumCircuit):
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(arch)
 
@@ -460,6 +441,7 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
+    success = 0
 
     for iteration in range(NUM_ITERATIONS):
 
@@ -479,11 +461,15 @@ def telesabre(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = Fal
                 continue
 
             final_mapping, _ = sabre_pass(arch, initial_mapping, circuit_dag, True)
-            initial_mapping, _ = sabre_pass(arch, final_mapping, reverse_circuit_dag, False)
+            initial_mapping, _ = sabre_pass(arch, final_mapping, reverse_circuit_dag, True)
             _, gate_execution_log = sabre_pass(arch, initial_mapping, circuit_dag, True)
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(f"Iteration {iteration} ran successfully")
+            success += 1
+
+            if success == 5:
+                break
 
         except DeadlockError as e:
             deadlocks += 1
