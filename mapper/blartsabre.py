@@ -127,7 +127,7 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
     return mapping, gate_execution_log
 
 
-def blartsabre(arch: BLARTNetworkGraph, quantum_circuit, verbose = False, return_log = False, seed = None, num_iterations = 50):
+def blartsabre_layout(arch: BLARTNetworkGraph, quantum_circuit, verbose = False, return_log = False, seed = None, num_iterations = 50):
     """
     return values:
         mapping: Bidict mapping where logical qubits are keys, Physical qubits are values
@@ -141,20 +141,8 @@ def blartsabre(arch: BLARTNetworkGraph, quantum_circuit, verbose = False, return
         random.seed(int(seed))
 
     if isinstance(quantum_circuit, QuantumCircuit):
-        pm = PassManager()
-        pm.append([
-            RemoveBarriers(),
-            OptimizeSwapBeforeMeasure(),
-            RemoveDiagonalGatesBeforeMeasure(),
-            RemoveFinalMeasurements(),
-            Unroll3qOrMore(),
-            RemoveResetInZeroState(),
-        ])
-        quantum_circuit = pm.run(quantum_circuit)
         reverse_quantum_circuit = quantum_circuit.inverse()
 
-        if verbose:
-            print(quantum_circuit)
         num_logical_qubits = quantum_circuit.num_qubits
         num_physical_qubits = len(arch)
 

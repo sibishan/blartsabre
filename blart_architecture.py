@@ -97,8 +97,67 @@ def blart_grid(core_height, core_width, core_rows, core_cols):
 
     return BLARTNetworkGraph(edges, blart_edge_groups = blart_edge_groups)
 
-if __name__ == '__main__':
 
-    arch = blart_grid(3,3,2,2)
+def tokyo_edges(offset=0):
+    edges = []
 
-    arch.draw()
+    # 4 horizontal chains: 0-1-2-3-4, 5-6-7-8-9, 10-11-12-13-14, 15-16-17-18-19
+    for start in (0, 5, 10, 15):
+        for i in range(start, start + 4):
+            edges.append((i + offset, i + 1 + offset))
+
+    # vertical links i <-> i+5 for i = 0..14
+    for i in range(0, 15):
+        edges.append((i + offset, i + 5 + offset))
+
+    # diagonals
+    for i in (1, 3, 5, 7, 11, 13):
+        edges.append((i + offset, i + 6 + offset))
+
+    for i in (2, 4, 6, 8, 12, 14):
+        edges.append((i + offset, i + 4 + offset))
+
+    return edges
+
+@staticmethod
+def blart_tokyo(offset=0):
+    edges = tokyo_edges(offset=offset)
+    return BLARTNetworkGraph(edges, blart_edge_groups=[], name=f"IBM Q Tokyo BLART (20 qubits, offset {offset})")
+
+@staticmethod
+def blart_two_tokyo():
+    data_edges = []
+    data_edges += tokyo_edges(offset=0)
+    data_edges += tokyo_edges(offset=20)
+
+    # inter-core links become BLART groups, use singletons to avoid all-to-all expansion
+    blart_edge_groups = [
+        ([4], [20]),
+        ([19], [25]),
+    ]
+
+    return BLARTNetworkGraph(
+        data_edges,
+        blart_edge_groups=blart_edge_groups,
+        name="Two connected IBM Q Tokyo BLART (40 qubits, 2 cores)"
+    )
+
+@staticmethod
+def blart_five_tokyo():
+    data_edges = []
+    for k in range(5):
+        data_edges += tokyo_edges(offset=20 * k)
+
+    comm_edges = [
+        (4, 20), (24, 40), (44, 60), (64, 80), (15, 99),
+        (19, 25), (39, 45), (59, 65), (79, 85), (0, 4)
+    ]
+
+    blart_edge_groups = [([u], [v]) for (u, v) in comm_edges]
+
+    return BLARTNetworkGraph(
+        data_edges,
+        blart_edge_groups=blart_edge_groups,
+        name="Five connected IBM Q Tokyo BLART (100 qubits, 5 cores)"
+    )
+
