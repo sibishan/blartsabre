@@ -21,10 +21,9 @@ from benchmarks.utils import load_qasm, init_circuit, save_stats_json, stats_fro
 
 from qiskit import QuantumCircuit
 
-BASE_SEED = None
+BASE_SEED = 1
 
-CIRCUITS = load_qasm("./data/quekno", recursive=True)
-qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/ae_nativegates_ibm_qiskit_opt3_25.qasm")
+CIRCUITS = load_qasm("./data/telesabre", recursive=True)
 
 def build_blart_arch(num_qubits):
     if num_qubits <= 20:
@@ -151,44 +150,44 @@ pairs = list(CIRCUITS.items())
 # print(f"Saved {len(all_rows_og_telesabre)} rows to {out_og_telesabre}")
 
 
-# it = tqdm(pairs, desc="Benchmarking (OUR TELESABRE)", unit="run")
-# for cir_name, cir in it:
-#     init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
+it = tqdm(pairs, desc="Benchmarking (OUR TELESABRE)", unit="run")
+for cir_name, cir in it:
+    init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
     
-#     # Our TeleSABRE
-#     arch_our = build_our_arch(num_qubits)
-#     try:
-#         stats = run_our_telesabre_pass(init_cir, arch_our, seed=BASE_SEED)
-#         stats.update({
-#             "impl": "our_telesabre",
-#             "name": cir_name,
-#             "config_name": f"seed{BASE_SEED}",
-#             "arch_name": arch_our.name,
-#             "num_qubits": num_qubits,
-#             "init_time": init_time,
-#             "og_cx": og_cx,
-#             "og_swaps": og_swaps,
-#             "og_depth": og_depth,
-#             "og_size": og_size,
-#         })
-#         all_rows_our_telesabre.append(stats)
-#     except Exception as e:
-#         all_rows_our_telesabre.append({
-#             "impl": "our_telesabre",
-#             "name": cir_name,
-#             "config_name": f"seed{BASE_SEED}",
-#             "arch_name": arch_our.name,
-#             "num_qubits": num_qubits,
-#             "init_time": init_time,
-#             "og_cx": og_cx,
-#             "og_swaps": og_swaps,
-#             "og_depth": og_depth,
-#             "og_size": og_size,
-#             "error": repr(e),
-#         })
+    # Our TeleSABRE
+    arch_our = build_our_arch(num_qubits)
+    try:
+        stats = run_our_telesabre_pass(init_cir, arch_our, seed=BASE_SEED)
+        stats.update({
+            "impl": "our_telesabre",
+            "name": cir_name,
+            "config_name": f"seed{BASE_SEED}",
+            "arch_name": arch_our.name,
+            "num_qubits": num_qubits,
+            "init_time": init_time,
+            "og_cx": og_cx,
+            "og_swaps": og_swaps,
+            "og_depth": og_depth,
+            "og_size": og_size,
+        })
+        all_rows_our_telesabre.append(stats)
+    except Exception as e:
+        all_rows_our_telesabre.append({
+            "impl": "our_telesabre",
+            "name": cir_name,
+            "config_name": f"seed{BASE_SEED}",
+            "arch_name": arch_our.name,
+            "num_qubits": num_qubits,
+            "init_time": init_time,
+            "og_cx": og_cx,
+            "og_swaps": og_swaps,
+            "og_depth": og_depth,
+            "og_size": og_size,
+            "error": repr(e),
+        })
 
-# out_our_telesabre = save_stats_json(all_rows_our_telesabre, "./benchmarks/telesabre/results/our_telesabre.json", indent=4)
-# print(f"Saved {len(all_rows_our_telesabre)} rows to {out_our_telesabre}")
+out_our_telesabre = save_stats_json(all_rows_our_telesabre, "./benchmarks/telesabre/results/our_telesabre.json", indent=4)
+print(f"Saved {len(all_rows_our_telesabre)} rows to {out_our_telesabre}")
 
 
 # it = tqdm(pairs, desc="Benchmarking (BLARTSABRE)", unit="run")
@@ -229,75 +228,3 @@ pairs = list(CIRCUITS.items())
 
 # out_blartsabre = save_stats_json(all_rows_blartsabre, "./benchmarks/telesabre/results/blartsabre.json", indent=4)
 # print(f"Saved {len(all_rows_blartsabre)} rows to {out_blartsabre}")
-
-
-init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(qc)
-
-# BLARTSABRE
-arch_our = build_blart_arch(num_qubits)
-try:
-    stats = run_blartsabre_pass(init_cir, arch_our, seed=BASE_SEED)
-    stats.update({
-        "impl": "blartsabre",
-        "config_name": f"seed{BASE_SEED}",
-        "arch_name": arch_our.name,
-        "num_qubits": num_qubits,
-        "init_time": init_time,
-        "og_cx": og_cx,
-        "og_swaps": og_swaps,
-        "og_depth": og_depth,
-        "og_size": og_size,
-    })
-    all_rows_blartsabre.append(stats)
-except Exception as e:
-    all_rows_blartsabre.append({
-        "impl": "blartsabre",
-        "config_name": f"seed{BASE_SEED}",
-        "arch_name": arch_our.name,
-        "num_qubits": num_qubits,
-        "init_time": init_time,
-        "og_cx": og_cx,
-        "og_swaps": og_swaps,
-        "og_depth": og_depth,
-        "og_size": og_size,
-        "error": repr(e),
-    })
-
-out_blartsabre = save_stats_json(all_rows_blartsabre, "./benchmarks/telesabre/results/blartsabre.json", indent=4)
-print(f"Saved {len(all_rows_blartsabre)} rows to {out_blartsabre}")
-
-# init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(qc)
-
-# # OG TeleSABRE
-# arch_our = build_og_arch(num_qubits)
-# for i in range(5):
-#     try:
-#         stats = run_og_telesabre_pass(init_cir, arch_our, seed=BASE_SEED + i)
-#         stats.update({
-#             "impl": "og_telesabre",
-#             "config_name": f"seed{BASE_SEED + i}",
-#             "arch_name": arch_our.name,
-#             "num_qubits": num_qubits,
-#             "init_time": init_time,
-#             "og_cx": og_cx,
-#             "og_swaps": og_swaps,
-#             "og_depth": og_depth,
-#             "og_size": og_size,
-#         })
-#         all_rows_og_telesabre.append(stats)
-#     except Exception as e:
-#         all_rows_og_telesabre.append({
-#             "impl": "og_telesabre",
-#             "config_name": f"seed{BASE_SEED + i}",
-#             "arch_name": arch_our.name,
-#             "num_qubits": num_qubits,
-#             "init_time": init_time,
-#             "og_cx": og_cx,
-#             "og_swaps": og_swaps,
-#             "og_depth": og_depth,
-#             "og_size": og_size,
-#             "error": repr(e),
-#         })
-
-# out_og_telesabre = save_stats_json(all_rows_og_telesabre, "./benchmarks/telesabre/results/og_telesabre.json", indent=4)
-# print(f"Saved {len(all_rows_og_telesabre)} rows to {out_og_telesabre}")

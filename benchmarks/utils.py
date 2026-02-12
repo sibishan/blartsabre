@@ -126,7 +126,6 @@ def ops_from_our_log(gate_execution_log):
             ops.append(("move", p1, p2, p3, p4))
 
         else:
-            # executed gate, you said only CX and SWAP matter
             name = str(op).upper()
             if "CX" in name:
                 p1, p2 = map(int, payload)
@@ -146,7 +145,7 @@ def mapped_ops(operations, num_phys_qubits):
         qubits = op[1:]
 
         if tag == "move":
-            if len(qubits) == 2 and any(used_qubits[q] for q in qubits):
+            if len(qubits) == 2:
                 swap_count += 1
                 for q in qubits:
                     used_qubits[q] = True
