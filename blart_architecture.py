@@ -83,6 +83,7 @@ class BLARTNetworkGraph(QubitNetworkGraph):
                 return num_simul_remote_gates
         return num_simul_remote_gates
 
+
 def blart_grid(core_height, core_width, core_rows, core_cols):
     edges = []
     blart_edge_groups=[]
@@ -144,44 +145,52 @@ def tokyo_edges(offset=0):
     return edges
 
 @staticmethod
-def blart_tokyo(offset=0):
-    edges = tokyo_edges(offset=offset)
-    return BLARTNetworkGraph(edges, blart_edge_groups=[], name=f"IBM Q Tokyo BLART (20 qubits, offset {offset})")
-
-@staticmethod
 def blart_two_tokyo():
     data_edges = []
     data_edges += tokyo_edges(offset=0)
     data_edges += tokyo_edges(offset=20)
 
-    # inter-core links become BLART groups, use singletons to avoid all-to-all expansion
     blart_edge_groups = [
-        ([4], [20]),
-        ([19], [25]),
+        ([9, 4],  [20, 21]),   # group 0: 0a side, 0b side
+        ([14, 19], [24, 23]),  # group 1: 1a side, 1b side
     ]
 
     return BLARTNetworkGraph(
         data_edges,
         blart_edge_groups=blart_edge_groups,
-        name="Two connected IBM Q Tokyo BLART (40 qubits, 2 cores)"
+        name="Two connected IBM Q Tokyo BLART (40 qubits, 2 corees)"
     )
 
+
 @staticmethod
-def blart_five_tokyo():
+def blart_four_tokyo():
     data_edges = []
-    for k in range(5):
-        data_edges += tokyo_edges(offset=20 * k)
+    data_edges += tokyo_edges(offset=0)
+    data_edges += tokyo_edges(offset=20)
+    data_edges += tokyo_edges(offset=40)
+    data_edges += tokyo_edges(offset=60)
 
-    comm_edges = [
-        (4, 20), (24, 40), (44, 60), (64, 80), (15, 99),
-        (19, 25), (39, 45), (59, 65), (79, 85), (0, 4)
+    blart_edge_groups = [
+        # Horizontal: Core 0 ↔ Core 1 (right col ↔ left col)
+        ([4, 9], [20, 25]),
+        ([14, 19], [30, 35]),
+        
+        # Horizontal: Core 2 ↔ Core 3
+        ([44, 49], [60, 65]),
+        ([54, 59], [70, 75]),
+        
+        # Vertical: Core 0 ↔ Core 2 (bottom row ↔ top row, excluding corners)
+        ([15, 16], [40, 41]),
+        ([17, 18], [42, 43]),
+        
+        # Vertical: Core 1 ↔ Core 3 (excluding corners used by horizontal)
+        ([36, 37], [61, 62]),
+        ([38, 39], [63, 64]),
     ]
-
-    blart_edge_groups = [([u], [v]) for (u, v) in comm_edges]
 
     return BLARTNetworkGraph(
         data_edges,
         blart_edge_groups=blart_edge_groups,
-        name="Five connected IBM Q Tokyo BLART (100 qubits, 5 cores)"
+        name="Four connected IBM Q Tokyo BLART (80 qubits, 4 cores)"
     )
 

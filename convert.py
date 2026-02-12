@@ -1,10 +1,8 @@
 from dag import QuantumDAG
+from qiskit import qasm2
 
 
 def from_qiskit(circuit):
-    """
-    Convert a Decomposed Qiskit QuantumCircuit to QuantumDAG.
-    """
     dag = QuantumDAG(num_qubits=circuit.num_qubits, num_clbits=circuit.num_clbits)
 
     for instruction in circuit.data:
@@ -35,17 +33,6 @@ def from_qiskit(circuit):
     return dag
 
 
-
 def from_qasm_file(filepath: str):
-    """
-    Load OpenQASM file and convert to QuantumDAG.
-    
-    Args:
-        filepath: Path to .qasm file
-        
-    Returns:
-        QuantumDAG representation
-    """
-    from qiskit import QuantumCircuit
-    circuit = QuantumCircuit.from_qasm_file(filepath)
+    circuit = qasm2.load(filepath)
     return from_qiskit(circuit)

@@ -77,8 +77,8 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
             nearest_free_node = nearest_free_qubit_map[comm_node]
             free_node_score = arch.get_separated_core_distance_matrix()[comm_node][nearest_free_node] * CONTRACTED_GRAPH_FREE_NODE_WEIGHT
         else:
-            nearest_free_node = arch.get_nth_nearest_intercore_free_qubit(temp_mapping, comm_node, 0)
-            second_nearest_free_node = arch.get_nth_nearest_intercore_free_qubit(temp_mapping, comm_node, 1)
+            nearest_free_node = arch. get_nth_nearest_intracore_free_qubit(temp_mapping, comm_node, 0)
+            second_nearest_free_node = arch. get_nth_nearest_intracore_free_qubit(temp_mapping, comm_node, 1)
             free_node_score = (arch.get_distance_matrix()[comm_node][nearest_free_node] + arch.get_distance_matrix()[comm_node][second_nearest_free_node])
         core_score = FULL_CORE_PENALTY if full_cores[core] else 0
         for u,v in contracted_graph.edges(comm_node):
@@ -457,7 +457,6 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
-    success = 0
 
     for iteration in range(num_iterations):
 
@@ -482,10 +481,6 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
 
             gate_execution_log_iterations[iteration] = (initial_mapping,gate_execution_log)
             print(f"Iteration {iteration} ran successfully")
-            success += 1
-
-            if success == 5:
-                break
 
         except DeadlockError as e:
             deadlocks += 1
