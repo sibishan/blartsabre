@@ -7,15 +7,15 @@ import random
 from copy import deepcopy
 import networkx as nx
 
-EXTENDED_LAYER_SIZE = 10
+EXTENDED_LAYER_SIZE = 8
 EXTENDED_HEURISTIC_WEIGHT = 0.05
 DECAY_VALUE = 0.001
 FULL_CORE_PENALTY = 10
-TELE_BONUS = -10
+TELE_BONUS = -100
 CONTRACTED_GRAPH_FREE_NODE_WEIGHT = 1
 
-RESET_TIMER_START = 50
-BREAK_DEADLOCK_TIMER_START = 100
+RESET_TIMER_START = 200
+BREAK_DEADLOCK_TIMER_START = 80
 
 class DeadlockError(RuntimeError): pass
 
@@ -77,8 +77,8 @@ def DQC_contracted_graph(arch: DistributedQubitNetworkGraph, temp_mapping: Mappi
             nearest_free_node = nearest_free_qubit_map[comm_node]
             free_node_score = arch.get_separated_core_distance_matrix()[comm_node][nearest_free_node] * CONTRACTED_GRAPH_FREE_NODE_WEIGHT
         else:
-            nearest_free_node = arch. get_nth_nearest_intracore_free_qubit(temp_mapping, comm_node, 0)
-            second_nearest_free_node = arch. get_nth_nearest_intracore_free_qubit(temp_mapping, comm_node, 1)
+            nearest_free_node = arch.get_nth_nearest_intercore_free_qubit(temp_mapping, comm_node, 0)
+            second_nearest_free_node = arch.get_nth_nearest_intercore_free_qubit(temp_mapping, comm_node, 1)
             free_node_score = (arch.get_distance_matrix()[comm_node][nearest_free_node] + arch.get_distance_matrix()[comm_node][second_nearest_free_node])
         core_score = FULL_CORE_PENALTY if full_cores[core] else 0
         for u,v in contracted_graph.edges(comm_node):
