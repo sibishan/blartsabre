@@ -55,6 +55,33 @@ class BLARTNetworkGraph(QubitNetworkGraph):
         nx.draw_networkx_edges(abstracted_graph, pos, edgelist=self.data_edges, edge_color="black")
         nx.draw_networkx_labels(abstracted_graph, pos)
         plt.show()
+    
+    def check_execute_remote_gate_simul(self, remote_gates):
+        """
+        Input: list of tuples of pairs of ints representing target p_qubits of remote gate
+
+        Output: int representing how many of the first n gates can be run simultaneously
+        """
+        blart_edge_capacity = [0 for edge_group in self.blart_edge_groups]
+        num_simul_remote_gates = 0
+        used_qubits = []
+        for remote_gate in remote_gates:
+            q1, q2 = remote_gate
+            if q1 in used_qubits or q2 in used_qubits:
+                # re-used qubit
+                return num_simul_remote_gates
+            for i in range(len(self.blart_edge_groups)):
+                core1_qubits, core2_qubits = self.blart_edge_groups[i]
+                if (q1 in core1_qubits and q2 in core2_qubits) or (q2 in core1_qubits and q1 in core2_qubits):
+                    if blart_edge_capacity[i] < 2:
+                        blart_edge_capacity[i] += 1
+                        num_simul_remote_gates += 1
+                        used_qubits.extend([q1, q2])
+                        break
+            else:
+                # No blart edges with <2 remote gates can facilitate remote gate
+                return num_simul_remote_gates
+        return num_simul_remote_gates
 
 def blart_grid(core_height, core_width, core_rows, core_cols):
     edges = []
@@ -81,9 +108,6 @@ def blart_grid(core_height, core_width, core_rows, core_cols):
             right_core = core_row*core_area*core_cols + (core_col + 1)*core_area
             left_node  = left_core  + (int((core_height - 1)/2) + left_parity) * core_width + core_width - 1
             right_node = right_core + (int((core_height - 1)/2) + right_parity) * core_width
-            # blart_edge_groups.append((range(left_node,min(left_node+2,left_core + core_area)), range(right_node,min(right_node+2,right_core + core_height))))
-            # print(left_node,left_node+core_width+1,left_core + core_area)
-            # print(right_node,right_node+core_width+1,right_core + core_area - core_width + 1)
             blart_edge_groups.append((range(left_node,min(left_node+core_width+1,left_core + core_area),core_width), range(right_node,min(right_node+core_width+1,right_core + core_area - core_width + 1),core_width)))
     for core_col in range(core_cols):
         for core_row in range(core_rows - 1):
