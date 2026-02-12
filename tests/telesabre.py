@@ -1,8 +1,8 @@
 from mapper.telesabre import telesabre_layout
 from architecture import DistributedQubitNetworkGraph, multi_core_grid, two_tokyo, four_tokyo
-from qiskit import qasm2
+from qiskit import QuantumCircuit
 
-qc = qasm2.load("./data/quekno/53Q_depth_Rochester/53QBT_depth_Rochester_large_opt_1_1.5_no.1.qasm")
+qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_64/ae_nativegates_ibm_qiskit_opt3_64.qasm")
 
 # arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
 #                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),

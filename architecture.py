@@ -105,7 +105,7 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         plt.show()
     
-    def get_nth_nearest_intercore_free_qubit(self, mapping: Mapping, node, n = 0):
+    def  get_nth_nearest_intracore_free_qubit(self, mapping: Mapping, node, n = 0):
         free_nodes = mapping.get_free_p_nodes()
         core = self.qubit_core_map[node]
         core_free_nodes = [free_node for free_node in free_nodes if self.qubit_core_map[free_node] == core]
