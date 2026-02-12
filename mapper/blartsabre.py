@@ -7,7 +7,7 @@ from blart_architecture import BLARTNetworkGraph
 from copy import deepcopy
 
 EXTENDED_LAYER_SIZE = 5
-EXTENDED_HEURISTIC_WEIGHT = 0.5
+EXTENDED_HEURISTIC_WEIGHT = 0.05
 DECAY_VALUE = 0.001
 
 def get_SWAP_candidates(arch: BLARTNetworkGraph, mapping: Mapping, front_layer):
@@ -26,6 +26,7 @@ def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Ma
 
     front_layer_gates = circuit_dag.get_gates_from_nodes(circuit_dag.get_front_layer())
     H_basic = 0
+
     for gate in front_layer_gates:
         if len(gate.qubits) == 2:
             q1, q2 = gate.qubits
@@ -99,7 +100,7 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
             best_SWAP = min(score, key=score.get)
 
             update_mapping_SWAP(mapping,best_SWAP)
-            if best_SWAP in arch.blart_edges:
+            if best_SWAP in arch.blart_edges or (best_SWAP[1], best_SWAP[0]) in arch.blart_edges:
                 gate_execution_log.append(("Remote SWAP", best_SWAP))
             else:
                 gate_execution_log.append(("SWAP", best_SWAP))

@@ -2,7 +2,7 @@ from architecture import QubitNetworkGraph
 import networkx as nx
 import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 4.0
+COMM_EDGE_WEIGHT = 5
 
 class BLARTNetworkGraph(QubitNetworkGraph):
     def __init__(self, *args, blart_edge_groups=[], **kwargs):
@@ -171,19 +171,12 @@ def blart_four_tokyo():
     data_edges += tokyo_edges(offset=60)
 
     blart_edge_groups = [
-        # Horizontal: Core 0 ↔ Core 1 (right col ↔ left col)
         ([4, 9], [20, 25]),
         ([14, 19], [30, 35]),
         
-        # Horizontal: Core 2 ↔ Core 3
         ([44, 49], [60, 65]),
         ([54, 59], [70, 75]),
         
-        # Vertical: Core 0 ↔ Core 2 (bottom row ↔ top row, excluding corners)
-        ([15, 16], [40, 41]),
-        ([17, 18], [42, 43]),
-        
-        # Vertical: Core 1 ↔ Core 3 (excluding corners used by horizontal)
         ([36, 37], [61, 62]),
         ([38, 39], [63, 64]),
     ]
@@ -194,3 +187,13 @@ def blart_four_tokyo():
         name="Four connected IBM Q Tokyo BLART (80 qubits, 4 cores)"
     )
 
+if __name__ == '__main__':
+    arch = blart_grid(2,2,2,2)
+    e1 = arch.edges(1)
+    e2 = arch.edges(4)
+    for e in e1:
+        if e in arch.blart_edges or (e[1], e[0]) in arch.blart_edges:
+            print(e)
+    for e in e2:
+        if e in arch.blart_edges or (e[1], e[0]) in arch.blart_edges:
+            print(e)

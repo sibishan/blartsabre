@@ -1,0 +1,24 @@
+[
+    {
+        "iterations": 5,
+        "seed": null,
+        "mapped_swaps": 240,
+        "mapped_swaps_local": 146,
+        "mapped_swaps_remote": 94,
+        "mapped_cx_remote": 60,
+        "mapped_cx_local": 498,
+        "mapped_1q": 821,
+        "mapped_depth": 1166,
+        "mapped_remote_depth": 1119,
+        "mapping_time": 228.9117794589838,
+        "impl": "blartsabre",
+        "config_name": "seedNone",
+        "arch_name": "Four connected IBM Q Tokyo BLART (80 qubits, 4 cores)",
+        "num_qubits": 25,
+        "init_time": 0.0010726669570431113,
+        "og_cx": 558,
+        "og_swaps": 0,
+        "og_depth": 395,
+        "og_size": 1379
+    }
+]
