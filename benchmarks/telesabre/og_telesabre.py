@@ -24,10 +24,9 @@ from qiskit import QuantumCircuit
 BASE_SEED = 1
 
 CIRCUITS = load_qasm("./data/telesabre", recursive=True)
-qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_64/ghz_nativegates_ibm_qiskit_opt3_64.qasm")
 
 def build_blart_arch(num_qubits):
-    if num_qubits <= 20:
+    if num_qubits <= 30:
         arch = blart_two_tokyo()
     else:
         arch = blart_four_tokyo()
@@ -35,7 +34,7 @@ def build_blart_arch(num_qubits):
     return arch
 
 def build_our_arch(num_qubits):
-    if num_qubits <= 20:
+    if num_qubits <= 30:
         arch = two_tokyo()
     else:
         arch = four_tokyo()
@@ -43,7 +42,7 @@ def build_our_arch(num_qubits):
     return arch
 
 def build_og_arch(num_qubits):
-    if num_qubits <= 20:
+    if num_qubits <= 30:
         arch = TWO_TOKYO()
     else:
         arch = FOUR_TOKYO()
