@@ -417,7 +417,7 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
     return mapping, gate_execution_log
 
 
-def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = False, return_log = False, seed = None, num_iterations = 10):
+def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbose = False, return_log = False, seed = None, num_iterations = 10, back_opt=True):
     """
     return values:
         mapping: Mapping of logical qubits to physical qubits
