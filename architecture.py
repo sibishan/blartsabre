@@ -5,12 +5,12 @@ from mapping import Mapping
 
 COMM_EDGE_WEIGHT = 2.0
     
-class QubitNetworkGraph(nx.Graph):
+class QubitNetworkGraph():
     def __init__(self, *args, **kwargs):
-        super(QubitNetworkGraph, self).__init__(*args, **kwargs)
-        nx.set_edge_attributes(self, 'data', 'type')
-        self.distance_matrix = nx.floyd_warshall(self, weight="weight")
-        self.pos = nx.spring_layout(self, iterations=200)
+        self.graph = nx.Graph(*args, **kwargs)
+        nx.set_edge_attributes(self.graph, 'data', 'type')
+        self.distance_matrix = nx.floyd_warshall(self.graph, weight="weight")
+        self.pos = nx.spring_layout(self.graph, iterations=200)
 
 
     def get_distance_matrix(self):
@@ -21,7 +21,7 @@ class QubitNetworkGraph(nx.Graph):
             return True
         
         q1, q2 = gate.qubits
-        return self.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
+        return self.graph.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
     
     def draw(self):
         nx.draw(self, pos = self.pos)
@@ -36,13 +36,13 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         self.core_node_groups = core_node_groups
         self.qubit_core_map = [i for i, sublist in enumerate(core_node_groups) for _ in sublist]
         
-        self.num_cores = (max(self.qubit_core_map) + 1) if self.number_of_nodes() > 0 else 0
+        self.num_cores = (max(self.qubit_core_map) + 1) if self.graph.number_of_nodes() > 0 else 0
 
         self.active_telegate_nodes = ()
 
         self.separated_core_graph = nx.Graph()
         for core_node_group in core_node_groups:
-            core_subgraph = self.subgraph(core_node_group)
+            core_subgraph = self.graph.subgraph(core_node_group)
             self.core_subgraphs.append(core_subgraph)
             self.separated_core_graph = nx.union(self.separated_core_graph,core_subgraph)
         self.data_edges = self.separated_core_graph.edges()
@@ -52,12 +52,20 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         self.non_comm_qubits = self.nodes() - self.comm_qubits
 
         for u, v in self.comm_edges:
-            self.edges[u, v]['weight'] = 2
+            self.graph.edges[u, v]['weight'] = 2
 
-        self.distance_matrix = nx.floyd_warshall(self, weight="weight")
+        self.distance_matrix = nx.floyd_warshall(self.graph, weight="weight")
         self.separated_core_distance_matrix = nx.floyd_warshall(self.separated_core_graph)
 
-        
+    def edges(self):
+        return self.graph.edges()
+
+    def nodes(self):
+        return self.graph.nodes()
+    
+    def __len__(self):
+        return len(self.graph)
+
     def check_gate_executable(self, gate, mapping):
         if len(gate.qubits) < 2:
             return True
@@ -74,13 +82,13 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         return self.separated_core_distance_matrix
 
     def draw(self):
-        nx.draw_networkx_nodes(self, self.pos, nodelist=self.comm_qubits, node_shape="h",
+        nx.draw_networkx_nodes(self.graph, self.pos, nodelist=self.comm_qubits, node_shape="h",
                                 linewidths=1, edgecolors="black",node_color="white")
-        nx.draw_networkx_nodes(self, self.pos, nodelist=self.non_comm_qubits, node_shape="o",
+        nx.draw_networkx_nodes(self.graph, self.pos, nodelist=self.non_comm_qubits, node_shape="o",
                                 linewidths=1, edgecolors="black",node_color="white")
-        nx.draw_networkx_edges(self, self.pos, edgelist=self.comm_edges, edge_color="red")
-        nx.draw_networkx_edges(self, self.pos, edgelist=self.data_edges, edge_color="black")
-        nx.draw_networkx_labels(self, self.pos)
+        nx.draw_networkx_edges(self.graph, self.pos, edgelist=self.comm_edges, edge_color="red")
+        nx.draw_networkx_edges(self.graph, self.pos, edgelist=self.data_edges, edge_color="black")
+        nx.draw_networkx_labels(self.graph, self.pos)
 
         plt.show()
     
@@ -104,6 +112,9 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         nx.draw_networkx_labels(self, shifted_pos, labels=mapping.inv, font_color="Red")
 
         plt.show()
+
+    def get_p_qubit_core(self, p):
+        return self.qubit_core_map[p]
     
     def  get_nth_nearest_intercore_free_qubit(self, mapping: Mapping, node, n = 0):
         free_nodes = mapping.get_free_p_nodes()
@@ -147,7 +158,7 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         return [len(core_free_nodes_map) < 2 for core_free_nodes_map in core_free_nodes_map]
 
-    def get_core_capacity(self, mapping: Mapping):
+    def get_core_capacities(self, mapping: Mapping):
         free_nodes = mapping.get_free_p_nodes()
         core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
 
