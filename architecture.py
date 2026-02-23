@@ -23,6 +23,15 @@ class QubitNetworkGraph():
         q1, q2 = gate.qubits
         return self.graph.has_edge(mapping.l_to_p(q1),mapping.l_to_p(q2))
     
+    def edges(self):
+        return self.graph.edges()
+
+    def nodes(self):
+        return self.graph.nodes()
+    
+    def __len__(self):
+        return len(self.graph)
+
     def draw(self):
         nx.draw(self, pos = self.pos)
         plt.show()
@@ -56,15 +65,6 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
 
         self.distance_matrix = nx.floyd_warshall(self.graph, weight="weight")
         self.separated_core_distance_matrix = nx.floyd_warshall(self.separated_core_graph)
-
-    def edges(self):
-        return self.graph.edges()
-
-    def nodes(self):
-        return self.graph.nodes()
-    
-    def __len__(self):
-        return len(self.graph)
 
     def check_gate_executable(self, gate, mapping):
         if len(gate.qubits) < 2:
