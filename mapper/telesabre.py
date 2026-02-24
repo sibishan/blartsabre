@@ -382,8 +382,6 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
     break_deadlock_timer = BREAK_DEADLOCK_TIMER_START
     break_deadlock = False
 
-    iterations = 0
-
     previous_mapping = deepcopy(mapping)
     previous_gate_execution_log = []
 
@@ -437,6 +435,9 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
             elif len(best_operation) == 4:
                 gate_execution_log.append(("Telegate", best_operation))    
 
+            decay_array[best_operation[0]] += DECAY_VALUE
+            decay_array[best_operation[-1]] += DECAY_VALUE
+            
         for i in range(len(arch)):
             if decay_array[i]:
                 decay_timer[i]+=1
@@ -454,10 +455,6 @@ def sabre_pass(arch: DistributedQubitNetworkGraph, initial_mapping: Mapping, cir
             reset_timer -= 1
             if reset_timer < 0:
                 raise DeadlockError("reset_timer expired in sabre_pass")
-        iterations += 1
-        # if iterations > 20:
-        #     raise RuntimeError()
-    print("iter", iterations)
 
     return mapping, gate_execution_log
 
