@@ -18,17 +18,17 @@ class BLARTNetworkGraph(QubitNetworkGraph):
                 for q2 in core2_qubits:
                     self.blart_edges.append((q1, q2))
 
-        self.add_edges_from(self.blart_edges)
+        self.graph.add_edges_from(self.blart_edges)
 
         for u, v in self.data_edges:
-            self[u][v]["weight"] = 1.0
-            self[u][v]["type"] = "data"
+            self.graph[u][v]["weight"] = 1.0
+            self.graph[u][v]["type"] = "data"
 
         for u, v in self.blart_edges:
-            self[u][v]["weight"] = COMM_EDGE_WEIGHT
-            self[u][v]["type"] = "blart"
+            self.graph[u][v]["weight"] = COMM_EDGE_WEIGHT
+            self.graph[u][v]["type"] = "blart"
 
-        self.distance_matrix = dict(nx.floyd_warshall(self, weight="weight"))
+        self.distance_matrix = dict(nx.floyd_warshall(self.graph, weight="weight"))
 
     def draw(self):
         abstracted_graph = nx.Graph(self.data_edges)
@@ -47,7 +47,7 @@ class BLARTNetworkGraph(QubitNetworkGraph):
         abstracted_graph.add_edges_from(abstract_edges)
 
         pos = nx.spring_layout(abstracted_graph, iterations=500)
-        nx.draw_networkx_nodes(abstracted_graph, pos, nodelist=self.nodes, node_shape="o", 
+        nx.draw_networkx_nodes(abstracted_graph, pos, nodelist=self.nodes(), node_shape="o", 
                               linewidths=1, edgecolors="black", node_color="white")
         nx.draw_networkx_nodes(abstracted_graph, pos, nodelist=abstract_nodes, node_shape="h", 
                               linewidths=1, edgecolors="red", node_color="white", node_size=500)
@@ -177,8 +177,8 @@ def blart_four_tokyo():
         ([44, 49], [60, 65]),
         ([54, 59], [70, 75]),
         
-        ([36, 37], [61, 62]),
-        ([38, 39], [63, 64]),
+        ([24, 29], [74, 79]),
+        ([34, 39], [64, 69]),
     ]
 
     return BLARTNetworkGraph(

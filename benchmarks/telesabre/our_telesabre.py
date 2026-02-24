@@ -152,6 +152,7 @@ pairs = list(CIRCUITS.items())
 
 it = tqdm(pairs, desc="Benchmarking (OUR TELESABRE)", unit="run")
 for cir_name, cir in it:
+    print(cir_name)
     init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
     
     # Our TeleSABRE

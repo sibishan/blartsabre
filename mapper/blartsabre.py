@@ -5,10 +5,14 @@ import random
 from dag import QuantumDAG
 from blart_architecture import BLARTNetworkGraph
 from copy import deepcopy
+from mapper.telesabre import DeadlockError
 
-EXTENDED_LAYER_SIZE = 5
+EXTENDED_LAYER_SIZE = 15
 EXTENDED_HEURISTIC_WEIGHT = 0.05
 DECAY_VALUE = 0.001
+
+RESET_TIMER_START = 150
+BREAK_DEADLOCK_TIMER_START = 80
 
 def get_SWAP_candidates(arch: BLARTNetworkGraph, mapping: Mapping, front_layer):
     # Current implementation: get all adjacent SWAPs of front layer qubits
@@ -16,11 +20,11 @@ def get_SWAP_candidates(arch: BLARTNetworkGraph, mapping: Mapping, front_layer):
     for gate in front_layer:
         for i in gate.qubits:
             front_nodes.add(mapping.l_to_p(i))
-    edges = arch.edges(front_nodes)
+    edges = arch.graph.edges(front_nodes)
     return edges
 
 
-def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Mapping, SWAP_candidate, decay_array):
+def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Mapping, SWAP_candidate, decay_array, break_deadlock):
     temp_mapping = mapping.copy()
     update_mapping_SWAP(temp_mapping,SWAP_candidate)
 
@@ -31,13 +35,15 @@ def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Ma
         if len(gate.qubits) == 2:
             q1, q2 = gate.qubits
             H_basic += arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
-    
+            if break_deadlock:
+                break
+
     u, v = SWAP_candidate
-    decay_factor = 1 + max(decay_array[u], decay_array[v])
+    decay_factor = max(decay_array[u], decay_array[v])
 
     extended_layer_gates = circuit_dag.get_gates_from_nodes(circuit_dag.get_extended_layer(EXTENDED_LAYER_SIZE))
 
-    if len(extended_layer_gates) == 0:
+    if len(extended_layer_gates) == 0 or break_deadlock:
         H = decay_factor / len(front_layer_gates) * H_basic
         return H
 
@@ -48,7 +54,7 @@ def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Ma
             H_extended += arch.get_distance_matrix()[temp_mapping.l_to_p(q1)][temp_mapping.l_to_p(q2)]
         
 
-    H = decay_factor / len(front_layer_gates) * H_basic + EXTENDED_HEURISTIC_WEIGHT / len(extended_layer_gates) * H_extended
+    H = decay_factor * (H_basic / len(front_layer_gates) + EXTENDED_HEURISTIC_WEIGHT / len(extended_layer_gates) * H_extended)
     return H
 
 def update_mapping_SWAP(mapping: Mapping, SWAP_candidate):
@@ -65,6 +71,13 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
     decay_timer = [0 for _ in range(len(arch))]
 
     front_layer = circuit_dag.get_front_layer()
+    reset_timer = RESET_TIMER_START
+    break_deadlock_timer = BREAK_DEADLOCK_TIMER_START
+    break_deadlock = False
+
+    previous_mapping = deepcopy(mapping)
+    previous_gate_execution_log = []
+
     while len(front_layer) != 0:
         executable_gate_nodes = []
         for gate_node in front_layer:
@@ -80,13 +93,18 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
                 remote_gate_string = ""
                 if len(gate.qubits) == 2:
                     q1, q2 = gate.qubits
-                    if arch[mapping.l_to_p(q1)][mapping.l_to_p(q2)]["type"] == "blart":
+                    if arch.graph[mapping.l_to_p(q1)][mapping.l_to_p(q2)]["type"] == "blart":
                         remote_gate_string = "Remote Gate "
                     
                 gate_execution_log.append((remote_gate_string + gate.gate_type + " " + str(gate.parameters),[mapping.l_to_p(qubit) for qubit in gate.qubits]))
                 circuit_dag.remove_gate(gate_node)
                 for qubit in gate.qubits:
                     decay_array[mapping.l_to_p(qubit)] = 1
+            reset_timer = RESET_TIMER_START
+            break_deadlock_timer = BREAK_DEADLOCK_TIMER_START
+            break_deadlock = False
+            previous_mapping = deepcopy(mapping)
+            previous_gate_execution_log = deepcopy(gate_execution_log)
         else:
             # A SWAP is required for the next gate
             score = dict()
@@ -95,7 +113,7 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
             SWAP_candidates = get_SWAP_candidates(arch, mapping, front_layer_gates)
 
             for SWAP_candidate in SWAP_candidates:
-                score[SWAP_candidate] = SWAP_heuristic(arch, circuit_dag, mapping, SWAP_candidate, decay_array)
+                score[SWAP_candidate] = SWAP_heuristic(arch, circuit_dag, mapping, SWAP_candidate, decay_array, break_deadlock)
 
             best_SWAP = min(score, key=score.get)
 
@@ -106,14 +124,24 @@ def sabre_forward_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circui
                 gate_execution_log.append(("SWAP", best_SWAP))
             decay_array[best_SWAP[0]] = 1 + DECAY_VALUE
             decay_array[best_SWAP[1]] = 1 + DECAY_VALUE
-            for i in range(len(arch)):
-                if decay_array[i]:
-                    decay_timer[i]+=1
-                if decay_timer[i] > 5:
-                    decay_array[i] = 1
-                    decay_timer[i] = 0
+        for i in range(len(arch)):
+            if decay_array[i]:
+                decay_timer[i]+=1
+            if decay_timer[i] > 5:
+                decay_array[i] = 1
+                decay_timer[i] = 0
 
         front_layer = circuit_dag.get_front_layer()
+
+        break_deadlock_timer -= 1
+        if break_deadlock_timer < 0 and not break_deadlock:
+            break_deadlock = True
+            mapping = previous_mapping
+            gate_execution_log = previous_gate_execution_log
+        if break_deadlock:
+            reset_timer -= 1
+            if reset_timer < 0:
+                raise DeadlockError("reset_timer expired in sabre_pass")
 
     return mapping, gate_execution_log
 
