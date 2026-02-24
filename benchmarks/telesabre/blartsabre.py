@@ -226,5 +226,5 @@ for cir_name, cir in it:
             "error": repr(e),
         })
 
-out_blartsabre = save_stats_json(all_rows_blartsabre, "./benchmarks/telesabre/results/blartsabre.json", indent=4)
+out_blartsabre = save_stats_json(all_rows_blartsabre, "./benchmarks/telesabre/results/blartsabre_improved.json", indent=4)
 print(f"Saved {len(all_rows_blartsabre)} rows to {out_blartsabre}")
