@@ -7,6 +7,7 @@ COMM_EDGE_WEIGHT = 2.0
     
 class QubitNetworkGraph():
     def __init__(self, *args, **kwargs):
+        self.name = kwargs.pop("name", "")
         self.graph = nx.Graph(*args, **kwargs)
         nx.set_edge_attributes(self.graph, 'data', 'type')
         self.distance_matrix = nx.floyd_warshall(self.graph, weight="weight")
