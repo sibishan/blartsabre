@@ -152,6 +152,7 @@ pairs = list(CIRCUITS.items())
 
 it = tqdm(pairs, desc="Benchmarking (OUR TELESABRE)", unit="run")
 for cir_name, cir in it:
+    print(cir_name)
     init_cir, init_time, og_cx, og_swaps, og_depth, num_qubits, og_size = init_circuit(cir)
     
     # Our TeleSABRE
@@ -186,7 +187,7 @@ for cir_name, cir in it:
             "error": repr(e),
         })
 
-out_our_telesabre = save_stats_json(all_rows_our_telesabre, "./benchmarks/telesabre/results/our_telesabre.json", indent=4)
+out_our_telesabre = save_stats_json(all_rows_our_telesabre, "./benchmarks/telesabre/results/our_telesabre_improved.json", indent=4)
 print(f"Saved {len(all_rows_our_telesabre)} rows to {out_our_telesabre}")
 
 
