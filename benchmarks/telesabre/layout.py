@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Layout:
     def __init__(self, mapping, phys_to_core=None, num_virtual=None):
         self.phys_to_virt = np.array(mapping, dtype=int)
@@ -63,3 +62,4 @@ class Layout:
     def __repr__(self):
         return f"Phys to Virt: {self.phys_to_virt}\nVirt to Phys: {self.virt_to_phys}"
     
+   

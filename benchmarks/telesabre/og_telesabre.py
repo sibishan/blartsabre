@@ -146,7 +146,7 @@ for cir_name, cir in it:
             "error": repr(e),
         })
 
-out_og_telesabre = save_stats_json(all_rows_og_telesabre, "./benchmarks/telesabre/results/og_telesabre.json", indent=4)
+out_og_telesabre = save_stats_json(all_rows_og_telesabre, "./benchmarks/telesabre/results/og_telesabre_opt_true.json", indent=4)
 print(f"Saved {len(all_rows_og_telesabre)} rows to {out_og_telesabre}")
 
 
