@@ -1,7 +1,8 @@
-import networkx as nx
 import colorsys
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
 
 
 def plot_iteration(layout, architecture, circuit, filename, gates=None, ops=None, dag=None, node_to_gate=None):
@@ -95,6 +96,7 @@ def plot_iteration(layout, architecture, circuit, filename, gates=None, ops=None
     _ = nx.draw_networkx_edges(G, pos, edge_color=edge_colors, ax=ax, node_size=600, width=3)
     
     fig.savefig(filename, bbox_inches='tight')
+
 
 
 def generate_hex_colors(n, saturation=0.8, lightness=0.8):
