@@ -7,7 +7,7 @@ class Config:
     energy_type: str = "extended_set"
     decay_factor: float = 0.9
     decay_reset: int = 5
-    optimize_initial: bool = True
+    optimize_initial: bool = False
     teleport_bonus: int = 100 # 100
     telegate_bonus: int = 100 #-1000 # 100 # 1000 #-1000 # disable telegates
     safety_valve_iters : int = 100
