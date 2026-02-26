@@ -11,7 +11,7 @@ qc = qiskit.qasm2.load("./data/quekno/53Q_depth_Rochester/53QBT_depth_Rochester_
 arch = blart_four_tokyo()
 arch.draw()
 
-initial_mapping = blartsabre_layout(arch, qc, verbose=True, num_iterations=10)
+# initial_mapping = blartsabre_layout(arch, qc, verbose=True, num_iterations=10)
 
 # routed_qc, mapping, log = sabre_swap(arch, qc, initial_mapping)
 # print(arch.distance_matrix)
