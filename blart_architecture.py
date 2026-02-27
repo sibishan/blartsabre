@@ -171,14 +171,17 @@ def blart_four_tokyo():
     data_edges += tokyo_edges(offset=60)
 
     blart_edge_groups = [
-        ([4, 9], [20, 25]),
-        ([14, 19], [30, 35]),
+        ([4, 9], [35, 36]),
+        ([14, 19], [37, 38]),
         
-        ([44, 49], [60, 65]),
-        ([54, 59], [70, 75]),
+        ([24, 29], [50, 55]),
+        ([34, 39], [40, 45]),
         
-        ([24, 29], [74, 79]),
-        ([34, 39], [64, 69]),
+        ([41, 42], [60, 65]),
+        ([43, 44], [70, 75]),
+
+        ([17,18], [61, 62]),
+        ([15,16], [63, 64])
     ]
 
     return BLARTNetworkGraph(
@@ -186,14 +189,3 @@ def blart_four_tokyo():
         blart_edge_groups=blart_edge_groups,
         name="Four connected IBM Q Tokyo BLART (80 qubits, 4 cores)"
     )
-
-if __name__ == '__main__':
-    arch = blart_grid(2,2,2,2)
-    e1 = arch.edges(1)
-    e2 = arch.edges(4)
-    for e in e1:
-        if e in arch.blart_edges or (e[1], e[0]) in arch.blart_edges:
-            print(e)
-    for e in e2:
-        if e in arch.blart_edges or (e[1], e[0]) in arch.blart_edges:
-            print(e)

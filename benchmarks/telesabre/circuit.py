@@ -1,7 +1,7 @@
 import random
 from itertools import permutations
-import networkx as nx
 
+import networkx as nx
 
 class Gate:
     def __init__(self, target_qubits, gate_type):

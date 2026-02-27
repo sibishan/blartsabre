@@ -291,15 +291,11 @@ def build_contracted_graph_for_virt_pair(architecture, layout, nearest_free_to_c
             other_core = architecture.get_qubit_core(n1) if n1 != p_comm else architecture.get_qubit_core(n2)
             if core != core1 and core != core2:
                 contracted_graph.edges[edge]['weight'] += (layout.get_core_capacity(core) < 2) * full_core_penalty / 2
-                min_priority = nearest_free_to_comms_queues[p_comm].get_min_priority()
-                if min_priority is not None:
-                    contracted_graph.edges[edge]['weight'] += min_priority / 2
+                contracted_graph.edges[edge]['weight'] += nearest_free_to_comms_queues[p_comm].get_min_priority() / 2
             elif ((architecture.is_comm_qubit(n1) and n1 != p_comm) or (architecture.is_comm_qubit(n2) and n2 != p_comm)) and True:
                 contracted_graph.edges[edge]['weight'] += (layout.get_core_capacity(core) < 2 and layout.get_core_capacity(other_core) < 2) * full_core_penalty * 100
             else:
-                min_priority = nearest_free_to_comms_queues[p_comm].get_min_priority()
-                if min_priority is not None:
-                    contracted_graph.edges[edge]['weight'] += min_priority / 2
+                contracted_graph.edges[edge]['weight'] += nearest_free_to_comms_queues[p_comm].get_min_priority()
                 
                 
     # add penalty for gte on comm
