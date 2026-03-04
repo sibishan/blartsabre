@@ -117,7 +117,7 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
     def get_p_qubit_core(self, p):
         return self.qubit_core_map[p]
     
-    def  get_nth_nearest_intercore_free_qubit(self, mapping: Mapping, node, n = 0):
+    def get_nth_nearest_intercore_free_qubit(self, mapping: Mapping, node, n = 0):
         free_nodes = mapping.get_free_p_nodes()
         core = self.qubit_core_map[node]
         core_free_nodes = [free_node for free_node in free_nodes if self.qubit_core_map[free_node] == core]
@@ -153,11 +153,15 @@ class DistributedQubitNetworkGraph(QubitNetworkGraph):
         
         return free_qubit_map
 
-    def get_full_cores(self, mapping: Mapping):
+    def get_full_cores(self, mapping: Mapping, min_non_full_capacity):
         free_nodes = mapping.get_free_p_nodes()
         core_free_nodes_map = [[node for node in core_group if node in free_nodes] for core_group in self.core_node_groups]
 
-        return [len(core_free_nodes_map) < 2 for core_free_nodes_map in core_free_nodes_map]
+        return [len(core_free_nodes_map) < min_non_full_capacity for core_free_nodes_map in core_free_nodes_map]
+
+    def get_core_capacity(self, mapping: Mapping, core):
+        free_nodes = mapping.get_free_p_nodes()
+        return sum(1 for node in self.core_node_groups[core] if node in free_nodes)
 
     def get_core_capacities(self, mapping: Mapping):
         free_nodes = mapping.get_free_p_nodes()
@@ -220,13 +224,11 @@ def four_tokyo():
     edges += list(tokyo(offset=40).edges())
     edges += list(tokyo(offset=60).edges())
 
-    # inter-core communication edges (aligned: right column ↔ left column)
-    # Core 0 ↔ Core 1
+    # inter-core communication edges
     edges += [(4, 20), (19, 35)]
-    # Core 1 ↔ Core 2
-    edges += [(24, 40), (39, 55)]
-    # Core 2 ↔ Core 3
+    edges += [(16, 41), (18, 43)]
     edges += [(44, 60), (59, 75)]
+    edges += [(36, 61), (38, 63)]
 
     core_node_groups = [
         list(range(0, 20)),    # core 0
@@ -296,8 +298,8 @@ def multi_core_grid(core_height, core_width, core_rows, core_cols):
     
     for core_row in range(core_rows):
         for core_col in range(core_cols - 1):
-            left_parity =  0 if core_row/(core_rows-1) < 0.5 or core_height%2==1 else -1
-            right_parity = 0 if core_row/(core_rows-1) < 0.5 or core_height%2==1 else -1
+            left_parity =  0 if core_row/(core_rows-1) < 0.5 or core_height%2==1 else 1
+            right_parity = 0 if core_row/(core_rows-1) <= 0.5 or core_height%2==1 else 1
             left_core  = core_row*core_area*core_cols +  core_col     *core_area
             right_core = core_row*core_area*core_cols + (core_col + 1)*core_area
             left_node  = left_core  + (int((core_height - 1)/2) + left_parity) * core_width + core_width - 1
@@ -305,8 +307,8 @@ def multi_core_grid(core_height, core_width, core_rows, core_cols):
             edges.append((left_node, right_node))
     for core_col in range(core_cols):
         for core_row in range(core_rows - 1):
-            up_parity =   0 if core_col/core_cols < 0.5 or core_width%2==1 else -1
-            down_parity = 0 if core_col/core_cols < 0.5 or core_width%2==1 else -1
+            up_parity =   0 if core_col/(core_cols-1) < 0.5 or core_width%2==1 else 1
+            down_parity = 0 if core_col/(core_cols-1) <= 0.5 or core_width%2==1 else 1
             up_core   =  core_row     *core_area*core_cols + core_col*core_area
             down_core = (core_row + 1)*core_area*core_cols + core_col*core_area
             up_node   = up_core   + (int((core_width - 1)/2) + up_parity) + (core_height - 1) * core_width
