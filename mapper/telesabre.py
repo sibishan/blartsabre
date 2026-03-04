@@ -527,17 +527,18 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
     else:
         raise ValueError("SABRE Layout only accepts Qiskit QuantumCircuit")
     
-    num_free = num_physical_qubits - num_logical_qubits
-    num_cores = len(arch.core_node_groups)
-    print("num_free", num_free, "num_cores", num_cores)
-    if num_free < 2:
-        print("Architecture configuration is incompatible with inter-core communication")
-    elif num_free * 2 < num_cores:
-        print("Architecture configuration is suboptimal for circuit routing")
-    elif num_free * 4 < num_cores:
-        print("Architecture configuration is standard for circuit routing")
-    else:
-        print("Architecture configuration is flexible for circuit routing")
+    if verbose:
+        num_free = num_physical_qubits - num_logical_qubits
+        num_cores = len(arch.core_node_groups)
+        print("num_free", num_free, "num_cores", num_cores)
+        if num_free < 2:
+            print("Architecture configuration is incompatible with inter-core communication")
+        elif num_free * 2 < num_cores:
+            print("Architecture configuration is suboptimal for circuit routing")
+        elif num_free * 4 < num_cores:
+            print("Architecture configuration is standard for circuit routing")
+        else:
+            print("Architecture configuration is flexible for circuit routing")
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
