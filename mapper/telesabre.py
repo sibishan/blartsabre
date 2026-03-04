@@ -370,13 +370,14 @@ def initialise_mapping(arch: DistributedQubitNetworkGraph, num_logical_qubits, t
                         l_qubit_to_core[q2] = core_idx
                         capacities[core_idx] -= 2
                         break
-    for l_qubit_idx in range(num_logical_qubits):
+    for l_qubit_idx in np.random.permutation(num_logical_qubits):
         if l_qubit_to_core[l_qubit_idx] == -1:
-            for core_idx in np.random.permutation(arch.num_cores):
-                if capacities[core_idx] > 3:
-                    l_qubit_to_core[l_qubit_idx] = core_idx
-                    capacities[core_idx] -= 1
-                    break
+            most_free_core = capacities.index(max(capacities))
+            if capacities[most_free_core] > 0:
+                l_qubit_to_core[l_qubit_idx] = most_free_core
+                capacities[most_free_core] -= 1
+            else:
+                raise ValueError("Cannot create layout circuit qubits to perform algorithm on hardware network")
                 
     core_to_l_qubit = [[] for _ in range(arch.num_cores)] 
     for core_idx in range(arch.num_cores):
@@ -526,17 +527,18 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
     else:
         raise ValueError("SABRE Layout only accepts Qiskit QuantumCircuit")
     
-    num_free = num_physical_qubits - num_logical_qubits
-    num_cores = len(arch.core_node_groups)
-    print("num_free", num_free, "num_cores", num_cores)
-    if num_free < 2:
-        print("Architecture configuration is incompatible with inter-core communication")
-    elif num_free * 2 < num_cores:
-        print("Architecture configuration is suboptimal for circuit routing")
-    elif num_free * 4 < num_cores:
-        print("Architecture configuration is standard for circuit routing")
-    else:
-        print("Architecture configuration is flexible for circuit routing")
+    if verbose:
+        num_free = num_physical_qubits - num_logical_qubits
+        num_cores = len(arch.core_node_groups)
+        print("num_free", num_free, "num_cores", num_cores)
+        if num_free < 2:
+            print("Architecture configuration is incompatible with inter-core communication")
+        elif num_free * 2 < num_cores:
+            print("Architecture configuration is suboptimal for circuit routing")
+        elif num_free * 4 < num_cores:
+            print("Architecture configuration is standard for circuit routing")
+        else:
+            print("Architecture configuration is flexible for circuit routing")
 
     gate_execution_log_iterations = dict()
     deadlocks = 0
