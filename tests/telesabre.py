@@ -27,8 +27,8 @@ qc = QuantumCircuit.from_qasm_file("./data/quekno/20Q_depth_Tokyo/20QBT_depth_To
 #                                     name="18-qubit-star-line-ring"
 #                                     )
 
-# arch = two_tokyo() # 40 qubits
-arch = multi_core_grid(3,3,2,2) # 40 qubits
+
+arch = multi_core_grid(4,4,3,2) # 96 qubits
 arch.draw()
 
-initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)
+# initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)
