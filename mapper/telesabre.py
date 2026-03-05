@@ -600,5 +600,5 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
         #     print(f"{gate_log[0]} -> {gate_log[1]}")
 
     if return_log:
-        return best_initial_mapping, best_gate_execution_log
+        return best_initial_mapping, best_gate_execution_log, len(best_gate_execution_log), len(best_swap_log), len(best_teleport_log), len(best_telegate_log)
     return best_initial_mapping

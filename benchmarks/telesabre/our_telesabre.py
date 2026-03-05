@@ -21,18 +21,18 @@ def build_our_arch(num_qubits):
 
 def run_our_telesabre_pass(qc, arch, seed=None):
     map_start = time.perf_counter()
-    _, gate_log = telesabre_layout(arch, qc, seed=seed, return_log=True, verbose=True, num_iterations=5)
+    _, _, total_gates, swaps, teleports, telegates = telesabre_layout(arch, qc, seed=seed, return_log=True, verbose=True, num_iterations=5)
     map_end = time.perf_counter()
     mapping_time = map_end - map_start
-
-    metrics = stats_from_our_telesabre_log(gate_log, len(arch))
     
     return {
     "iterations": 5,
     "seed": seed,
-    **metrics,
+    "total_gates": total_gates,
+    "swaps": swaps,
+    "teleports": teleports,
+    "telegates": telegates,
     "mapping_time": mapping_time,
-    "gate_log": gate_log
     }
 
 all_rows_our_telesabre = []
