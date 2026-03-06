@@ -4,7 +4,7 @@ from tqdm import tqdm
 from mapper.telesabre import telesabre_layout
 from architecture import multi_core_grid
 
-from benchmarks.utils import load_qasm, init_circuit, save_stats_json, stats_from_our_telesabre_log, stats_from_blartsabre_log
+from benchmarks.utils import load_qasm, init_circuit, save_stats_json
 
 
 BASE_SEED = 1
