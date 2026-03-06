@@ -2,7 +2,7 @@ from mapper.telesabre import telesabre_layout
 from architecture import DistributedQubitNetworkGraph, multi_core_grid, two_tokyo, four_tokyo
 from qiskit import QuantumCircuit
 
-qc = QuantumCircuit.from_qasm_file("./data/quekno/20Q_depth_Tokyo/20QBT_depth_Tokyo_large_opt_4_1.5_no.0.qasm")
+qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/ae_nativegates_ibm_qiskit_opt3_25.qasm")
 
 # arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
 #                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),
@@ -27,8 +27,8 @@ qc = QuantumCircuit.from_qasm_file("./data/quekno/20Q_depth_Tokyo/20QBT_depth_To
 #                                     name="18-qubit-star-line-ring"
 #                                     )
 
-# arch = two_tokyo() # 40 qubits
-arch = multi_core_grid(3,3,2,2) # 40 qubits
+
+arch = multi_core_grid(3,3,2,2) # 36 qubits
 arch.draw()
 
 initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)
