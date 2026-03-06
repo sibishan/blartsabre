@@ -2,13 +2,17 @@ from architecture import QubitNetworkGraph
 import networkx as nx
 import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 5
+COMM_EDGE_WEIGHT = 3
 
 class BLARTNetworkGraph(QubitNetworkGraph):
     def __init__(self, *args, blart_edge_groups=[], **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.data_edges = list(self.edges())
+        self.core_node_groups = [list(i) for i in nx.connected_components(self.graph)]
+        self.num_cores = len(self.core_node_groups)
+        self.qubit_core_map = [i for i, sublist in enumerate(self.core_node_groups) for _ in sublist]
+
+        self.data_edges = list(self.graph.edges())
         self.blart_edges = []
         self.blart_edge_groups = blart_edge_groups
 
@@ -56,6 +60,12 @@ class BLARTNetworkGraph(QubitNetworkGraph):
         nx.draw_networkx_labels(abstracted_graph, pos)
         plt.show()
     
+    def __len__(self):
+        return len(self.graph)
+
+    def get_p_qubit_core(self, p):
+        return self.qubit_core_map[p]
+
     def check_execute_remote_gate_simul(self, remote_gates):
         """
         Input: list of tuples of pairs of ints representing target p_qubits of remote gate
