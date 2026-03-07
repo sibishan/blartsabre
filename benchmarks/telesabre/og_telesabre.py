@@ -1,7 +1,7 @@
 import time
 from tqdm import tqdm
 
-from .architecture import Architecture
+from .architecture import Architecture, Edge
 from .circuit import Circuit
 
 # og telesabre
@@ -19,8 +19,29 @@ BASE_SEED = 1
 CIRCUITS = load_qasm("./data/telesabre", recursive=True)
 
 def build_og_arch(num_qubits):
-    if num_qubits <= 30:
-        arch = Architecture.A()
+    if num_qubits <= 25:
+        arch = Architecture(4,3,2,2)
+        arch.inter_core_edges = [
+            Edge(5,15),
+            Edge(22,37),
+            Edge(32,42),
+            Edge(10,25),
+        ]
+        
+        arch._update_qubit_to_edges()
+        arch._build_teleport_edges()
+        
+        arch.communication_qubits = list(set(arch.communication_qubits))
+        
+        arch.core_comm_qubits = [[] for _ in range(arch.num_cores)]
+        for p in arch.communication_qubits:
+            arch.core_comm_qubits[arch.qubit_to_core[p]].append(p)
+            
+        arch.core_qubits = [[] for _ in range(arch.num_cores)]
+        for p in range(arch.num_qubits):
+            arch.core_qubits[arch.qubit_to_core[p]].append(p)
+        
+        arch.name = "2x2C 4x3Q"
     else:
         arch = Architecture.H()
 

@@ -28,7 +28,7 @@ qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/ae_nativegates_ibm_
 #                                     )
 
 
-arch = multi_core_grid(3,3,2,2) # 36 qubits
+arch = multi_core_grid(4,4,3,2) # 36 qubits
 arch.draw()
 
-initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)
+# initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)

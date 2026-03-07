@@ -13,8 +13,8 @@ BASE_SEED = 1
 CIRCUITS = load_qasm("./data/telesabre", recursive=True)
 
 def build_blart_arch(num_qubits):
-    if num_qubits <= 30:
-        arch = blart_grid(3,3,2,2)
+    if num_qubits <= 25:
+        arch = blart_grid(4,3,2,2)
     else:
         arch = blart_grid(4,4,3,2)
 
