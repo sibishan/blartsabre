@@ -19,7 +19,13 @@
         "og_cx": 558,
         "og_swaps": 0,
         "og_depth": 395,
-        "og_size": 1379
+        "og_size": 1379,
+        "c" : {
+            "teleports": 79,
+            "telegates": 0,
+            "swaps": 361,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -41,7 +47,13 @@
         "og_cx": 1962,
         "og_swaps": 0,
         "og_depth": 1058,
-        "og_size": 4616
+        "og_size": 4616,
+        "c" : {
+            "teleports": 259,
+            "telegates": 94,
+            "swaps": 1494,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -63,7 +75,13 @@
         "og_cx": 24,
         "og_swaps": 0,
         "og_depth": 27,
-        "og_size": 27
+        "og_size": 27,
+        "c" : {
+            "teleports": 7,
+            "telegates": 0,
+            "swaps": 27,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -85,7 +103,13 @@
         "og_cx": 63,
         "og_swaps": 0,
         "og_depth": 66,
-        "og_size": 66
+        "og_size": 66,
+        "c" : {
+            "teleports": 16,
+            "telegates": 0,
+            "swaps": 132,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -107,7 +131,13 @@
         "og_cx": 25,
         "og_swaps": 0,
         "og_depth": 19,
-        "og_size": 100
+        "og_size": 100,
+        "c" : {
+            "teleports": 22,
+            "telegates": 1,
+            "swaps": 62,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -129,7 +159,13 @@
         "og_cx": 64,
         "og_swaps": 0,
         "og_depth": 25,
-        "og_size": 256
+        "og_size": 256,
+        "c" : {
+            "teleports": 60,
+            "telegates": 2,
+            "swaps": 281,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -151,7 +187,13 @@
         "og_cx": 580,
         "og_swaps": 0,
         "og_depth": 173,
-        "og_size": 1175
+        "og_size": 1175,
+        "c" : {
+            "teleports": 97,
+            "telegates": 7,
+            "swaps": 436,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -173,7 +215,13 @@
         "og_cx": 1966,
         "og_swaps": 0,
         "og_depth": 446,
-        "og_size": 3965
+        "og_size": 3965,
+        "c" : {
+            "teleports": 308,
+            "telegates": 4,
+            "swaps": 1711,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -195,7 +243,13 @@
         "og_cx": 1124,
         "og_swaps": 0,
         "og_depth": 589,
-        "og_size": 4006
+        "og_size": 4006,
+        "c" : {
+            "teleports": 480,
+            "telegates": 34,
+            "swaps": 1491,
+            "success": true
+        }
     },
     {
         "iterations": 1,
@@ -217,6 +271,12 @@
         "og_cx": 1627,
         "og_swaps": 0,
         "og_depth": 403,
-        "og_size": 5446
+        "og_size": 5446,
+        "c" : {
+            "teleports": -1,
+            "telegates": -1,
+            "swaps": -1,
+            "success": false
+        }
     }
 ]
