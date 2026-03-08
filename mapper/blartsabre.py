@@ -127,7 +127,7 @@ def blartsabre_pass(arch: BLARTNetworkGraph, initial_mapping: Mapping, circuit_d
     previous_gate_execution_log = []
 
     while len(front_layer) != 0:
-        print(circuit_dag.get_gate_count())
+        # print(circuit_dag.get_gate_count())
         executable_gate_nodes = []
         for gate_node in front_layer:
             gate = circuit_dag.get_gate_from_node(gate_node)
@@ -274,5 +274,5 @@ def blartsabre_layout(arch: BLARTNetworkGraph, quantum_circuit, verbose = False,
         #     print(f"{gate_log[0]} -> {gate_log[1]}")
 
     if return_log:
-        return best_initial_mapping, best_gate_execution_log
+        return best_initial_mapping, best_gate_execution_log, len(best_gate_execution_log), len(best_swap_log), len(best_remoteswap_log), len(best_remotegate_log) 
     return best_initial_mapping
