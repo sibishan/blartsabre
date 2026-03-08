@@ -2,7 +2,7 @@ from architecture import QubitNetworkGraph
 import networkx as nx
 import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 3
+COMM_EDGE_WEIGHT = 10
 
 class BLARTNetworkGraph(QubitNetworkGraph):
     def __init__(self, *args, blart_edge_groups=[], **kwargs):

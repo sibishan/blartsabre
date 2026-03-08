@@ -9,7 +9,7 @@ qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/graphstate_nativega
 
 # arch = BLARTNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7)], blart_edge_groups=[([1,3],[4,6])])
 # arch = BLARTNetworkGraph([(0,1),(0,2),(1,3),(2,3),(0,8),(2,8),(4,5),(4,6),(5,7),(6,7),(5,9),(7,9)], blart_edge_groups=[([1,3],[4,6])])
-arch = blart_grid(4,4,2,3)
+
 arch = blart_grid(3,3,2,2)
 arch.draw()
 
