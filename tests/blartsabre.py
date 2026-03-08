@@ -2,9 +2,7 @@ from mapper.blartsabre import blartsabre_layout
 from blart_architecture import BLARTNetworkGraph, blart_grid, blart_two_tokyo, blart_four_tokyo
 from qiskit import QuantumCircuit
 from convert import from_qiskit
-import qiskit.qasm2
 
-# qc = qiskit.qasm2.load("./data/quekno/53Q_depth_Rochester/53QBT_depth_Rochester_large_opt_1_1.5_no.0.qasm")
 qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/graphstate_nativegates_ibm_qiskit_opt3_25.qasm")
 
 # arch = BLARTNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7)], blart_edge_groups=[([1,3],[4,6])])
