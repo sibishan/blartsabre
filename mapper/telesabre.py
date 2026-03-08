@@ -504,7 +504,7 @@ def telesabre_layout(arch: DistributedQubitNetworkGraph, quantum_circuit, verbos
     num_logical_qubits = 0
     circuit_dag = None
     reverse_circuit_dag = None
-    two_qubit_quantum_circuit = None
+    two_qubit_circuit_dag = None
 
     if seed is not None:
         random.seed(int(seed))

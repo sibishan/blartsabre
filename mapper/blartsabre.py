@@ -10,21 +10,20 @@ import numpy as np
 import networkx as nx
 
 EXTENDED_LAYER_SIZE = 20
-EXTENDED_HEURISTIC_WEIGHT = 0.05
-DECAY_VALUE = 0.001
+EXTENDED_HEURISTIC_WEIGHT = 0.1
+DECAY_VALUE = 0.002
 
 RESET_TIMER_START = 150
 BREAK_DEADLOCK_TIMER_START = 80
 
-def get_SWAP_candidates(arch: BLARTNetworkGraph, mapping: Mapping, front_layer):
+def get_SWAP_candidates(arch: BLARTNetworkGraph, mapping: Mapping, front_layer_gates):
     # Current implementation: get all adjacent SWAPs of front layer qubits
     front_nodes = set()
-    for gate in front_layer:
+    for gate in front_layer_gates:
         for i in gate.qubits:
             front_nodes.add(mapping.l_to_p(i))
     edges = arch.graph.edges(front_nodes)
     return list(edges)
-
 
 def SWAP_heuristic(arch: BLARTNetworkGraph, circuit_dag: QuantumDAG, mapping: Mapping, SWAP_candidate, decay_array, break_deadlock):
     temp_mapping = mapping.copy()
@@ -236,9 +235,6 @@ def blartsabre_layout(arch: BLARTNetworkGraph, quantum_circuit, verbose = False,
     gate_execution_log_iterations = dict()
 
     for iteration in range(num_iterations):
-        # random_mapping = list(range(num_logical_qubits-num_physical_qubits,num_logical_qubits))
-        # random.shuffle(random_mapping)
-        # initial_mapping = Mapping([(i,j) for j,i in enumerate(random_mapping)])
         initial_mapping = initialise_mapping(arch, num_logical_qubits, two_qubit_circuit_dag)
 
         final_mapping, _ = blartsabre_pass(arch, initial_mapping, circuit_dag)
