@@ -4,31 +4,20 @@ from qiskit import QuantumCircuit
 
 qc = QuantumCircuit.from_qasm_file("./data/telesabre/qasm_25/ae_nativegates_ibm_qiskit_opt3_25.qasm")
 
-# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
-#                                                          (8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),
-#                                                          (1,4),(2,8),(7,13),(11,14)],
+# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),(8,9),(8,10),(9,11),(10,11),(12,13),(12,14),(13,15),(14,15),(1,4),(2,8),(7,13),(11,14)],
 #                                                      core_node_groups=[[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13,14,15]])
 
 # 15 qubit device
-# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),
-#                                      (5,6),(6,7),(7,8),(8,9),
-#                                      (10,11),(11,12),(12,13),(13,14),(14,10),
-#                                      (0,5), (9,10)],
+# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(5,6),(6,7),(7,8),(8,9),(10,11),(11,12),(12,13),(13,14),(14,10),(0,5), (9,10)],
 #                                     core_node_groups=[[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]],
-#                                     name="15-qubit-star-line-ring"
-#                                     )
+#                                     name="15-qubit-star-line-ring")
 
 # 18 qubit device
-# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),
-#                                      (6,7),(7,8),(8,9),(9,10),(10,11),
-#                                      (11,13),(13,14),(14,15),(15,16),(16,17),(17,12),
-#                                      (0,6), (11,12)],
+# arch = DistributedQubitNetworkGraph([(0,1),(0,2),(0,3),(0,4),(0,5),(6,7),(7,8),(8,9),(9,10),(10,11),(11,13),(13,14),(14,15),(15,16),(16,17),(17,12),(0,6), (11,12)],
 #                                     core_node_groups=[[0,1,2,3,4,5],[6,7,8,9,10,11],[12,13,14,15,16,17]],
-#                                     name="18-qubit-star-line-ring"
-#                                     )
+#                                     name="18-qubit-star-line-ring")
 
-
-arch = multi_core_grid(4,4,3,2) # 36 qubits
+arch = multi_core_grid(4,3,2,2) # 36 qubits
 arch.draw()
 
 # initial_mapping = telesabre_layout(arch, qc, verbose=True, seed=1, num_iterations=10)
