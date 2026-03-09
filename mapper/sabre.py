@@ -16,13 +16,13 @@ def reduce_2_qubit_gates(circuit):
             del circuit.data[i]
     return circuit
 
-def get_SWAP_candidates(graph, mapping, front_layer):
+def get_SWAP_candidates(arch, mapping, front_layer):
     # Current implementation: get all adjacent SWAPs of front layer qubits
     front_nodes = set()
     for gate in front_layer:
         for i in gate.qubits:
             front_nodes.add(mapping[i])
-    edges = graph.edges(front_nodes)
+    edges = arch.graph.edges(front_nodes)
     return edges
 
 

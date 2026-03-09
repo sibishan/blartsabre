@@ -117,7 +117,7 @@ def get_SWAP_candidates(arch, mapping, front_layer_gates):
     for gate in front_layer_gates:
         for q in gate.qubits:
             front_nodes.add(mapping[q])
-    return list(arch.edges(front_nodes))
+    return list(arch.graph.edges(front_nodes))
 
 def SWAP_heuristic(dag, temp_mapping, dist_matrix, swap_candidate, decay_array):
     front_nodes = dag.get_front_layer()
