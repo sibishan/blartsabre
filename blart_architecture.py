@@ -2,7 +2,7 @@ from architecture import QubitNetworkGraph
 import networkx as nx
 import matplotlib.pyplot as plt
 
-COMM_EDGE_WEIGHT = 10
+BLART_EDGE_WEIGHT = 3
 
 class BLARTNetworkGraph(QubitNetworkGraph):
     def __init__(self, *args, blart_edge_groups=[], **kwargs):
@@ -29,7 +29,7 @@ class BLARTNetworkGraph(QubitNetworkGraph):
             self.graph[u][v]["type"] = "data"
 
         for u, v in self.blart_edges:
-            self.graph[u][v]["weight"] = COMM_EDGE_WEIGHT
+            self.graph[u][v]["weight"] = BLART_EDGE_WEIGHT
             self.graph[u][v]["type"] = "blart"
 
         self.distance_matrix = dict(nx.floyd_warshall(self.graph, weight="weight"))
